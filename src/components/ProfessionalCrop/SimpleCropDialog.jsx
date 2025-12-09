@@ -198,7 +198,7 @@ const SimpleCropDialog = ({ isOpen, onClose, imageUrl, onCropComplete, aspectRat
                 </DialogFooter>
             </DialogContent>
         </Dialog>
-    );}
+    );
 };
 
 export default SimpleCropDialog;
