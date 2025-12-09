@@ -50,17 +50,25 @@ Thumbs.db
 SECURITY_*.md
 URGENT_*.md
 IMPLEMENTATION_*.md
+GITHUB_SETUP.md
+QUICK_START.md
 
 # Database dumps (keep local only)
 /dump/*.sql
 !dump/schema.sql
 
 # Deployment scripts
+create-github-repo.bat
 deploy-windows.bat
 vps-*.sh
 setup-git.sh
+setup-*.sh
+*.bat
 
 # Keep only essential docs in repo
 *.md
 !README.md
-!COOLIFY_SETUP.md
+
+# Supabase local
+supabase/.branches
+supabase/.temp

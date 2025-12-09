@@ -2,7 +2,7 @@
 
 /* TEAM */
 Developer: Ashish Kumar
-Site: https://ashwheel.cloud
+Site: https://ashwheel.com
 Twitter: @ash_mzp
 Location: India
 
