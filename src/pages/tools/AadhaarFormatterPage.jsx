@@ -7,10 +7,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, Download, Loader2, ArrowLeft, RefreshCw, FileImage, FileText, Image as ImageIcon, Scissors, Rows, Columns } from 'lucide-react';
 import { PDFDocument } from 'pdf-lib';
-import Cropper from 'react-easy-crop';
-import { getCroppedImg } from '@/utils/cropImage';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Slider } from '@/components/ui/slider';
+import SimpleCropDialog from '@/components/ProfessionalCrop/SimpleCropDialog';
 
 const AadhaarFormatterPage = () => {
   const [frontImage, setFrontImage] = useState(null);
@@ -21,19 +18,13 @@ const AadhaarFormatterPage = () => {
   const [resultImage, setResultImage] = useState(null);
   const [layout, setLayout] = useState('vertical'); // 'vertical' or 'horizontal'
 
-  const [crop, setCrop] = useState({ x: 0, y: 0 });
-  const [zoom, setZoom] = useState(1);
-  const [rotation, setRotation] = useState(0);
   const [currentCropping, setCurrentCropping] = useState(null); // 'front' or 'back'
-  const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
 
   const frontInputRef = useRef(null);
   const backInputRef = useRef(null);
   const { toast } = useToast();
 
-  const onCropComplete = useCallback((croppedArea, croppedAreaPixels) => {
-    setCroppedAreaPixels(croppedAreaPixels);
-  }, []);
+
 
   const handleImageUpload = (e, side) => {
     const file = e.target.files[0];
@@ -59,30 +50,13 @@ const AadhaarFormatterPage = () => {
     }
   };
 
-  const showCroppedImage = async () => {
-    try {
-      const imageToCrop = currentCropping === 'front' ? frontImage : backImage;
-      if (!imageToCrop) {
-          toast({ title: 'No Image', description: 'No image source to crop.', variant: 'destructive' });
-          return;
-      }
-      const croppedImage = await getCroppedImg(
-        imageToCrop,
-        croppedAreaPixels,
-        rotation
-      );
-      if (currentCropping === 'front') {
-        setCroppedFront(croppedImage);
-      } else {
-        setCroppedBack(croppedImage);
-      }
-      setCurrentCropping(null);
-      setZoom(1);
-      setRotation(0);
-    } catch (e) {
-      console.error(e);
-      toast({ title: 'Crop Failed', description: 'Could not crop the image.', variant: 'destructive' });
+  const handleCropComplete = (croppedUrl) => {
+    if (currentCropping === 'front') {
+      setCroppedFront(croppedUrl);
+    } else {
+      setCroppedBack(croppedUrl);
     }
+    setCurrentCropping(null);
   };
 
   const processImages = async () => {
@@ -308,43 +282,13 @@ const AadhaarFormatterPage = () => {
         </main>
       </div>
 
-      <Dialog open={!!currentCropping} onOpenChange={(isOpen) => !isOpen && setCurrentCropping(null)}>
-        <DialogContent className="max-w-4xl h-[80vh] flex flex-col">
-          <DialogHeader>
-            <DialogTitle>Crop Image - {currentCropping} side</DialogTitle>
-          </DialogHeader>
-          <div className="relative flex-1">
-            <Cropper
-              image={currentCropping === 'front' ? frontImage : backImage}
-              crop={crop}
-              zoom={zoom}
-              rotation={rotation}
-              aspect={85.6 / 54}
-              onCropChange={setCrop}
-              onZoomChange={setZoom}
-              onRotationChange={setRotation}
-              onCropComplete={onCropComplete}
-              showGrid={true}
-              cropShape="rect"
-              objectFit="contain"
-            />
-          </div>
-          <div className="flex flex-col gap-4 mt-4">
-            <div>
-              <label htmlFor="zoom-slider" className="text-sm">Zoom</label>
-              <Slider id="zoom-slider" name="zoom-slider" value={[zoom]} min={1} max={3} step={0.1} onValueChange={(val) => setZoom(val[0])} />
-            </div>
-            <div>
-              <label htmlFor="rotation-slider" className="text-sm">Rotation</label>
-              <Slider id="rotation-slider" name="rotation-slider" value={[rotation]} min={0} max={360} step={1} onValueChange={(val) => setRotation(val[0])} />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCurrentCropping(null)}>Cancel</Button>
-            <Button onClick={showCroppedImage}>Crop & Save</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <SimpleCropDialog
+        isOpen={!!currentCropping}
+        onClose={() => setCurrentCropping(null)}
+        imageUrl={currentCropping === 'front' ? frontImage : backImage}
+        onCropComplete={handleCropComplete}
+        aspectRatio={85.6 / 54}
+      />
     </>
   );
 };

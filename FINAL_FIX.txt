@@ -1,0 +1,71 @@
+========================================
+FINAL FIX - ashwheel.com (404 Error)
+========================================
+
+PROBLEM: Container running but 404 error
+CAUSE: Coolify proxy routing issue
+
+SOLUTION:
+========================================
+
+1. GO TO APPLICATION SETTINGS
+--------------------------
+Coolify → ashwheel.com app → Configuration
+
+
+2. CHECK "Ports Exposes" SECTION
+--------------------------
+Current: Probably empty or wrong
+
+Change to: 80
+
+Save
+
+
+3. CHECK "Ports Mappings" (If exists)
+--------------------------
+Should be empty for Coolify proxy
+
+
+4. VERIFY NETWORK
+--------------------------
+Configuration → Advanced
+Network: Should be "coolify" (default)
+
+
+5. REDEPLOY
+--------------------------
+Click "Redeploy" button
+Wait 2-3 minutes
+
+
+ALTERNATIVE FIX:
+========================================
+
+If above doesn't work:
+
+1. Configuration → Ports Exposes
+   Change to: 3000:80
+
+2. Save & Redeploy
+
+
+VERIFY IT'S WORKING:
+========================================
+
+SSH to server:
+docker ps | grep ashwheel
+
+Check container port mapping:
+Should show: 0.0.0.0:XXXX->80/tcp
+
+
+MOST COMMON ISSUE:
+========================================
+Coolify needs explicit port in "Ports Exposes"
+
+Set it to: 80
+
+Then Redeploy
+
+========================================

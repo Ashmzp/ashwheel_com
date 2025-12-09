@@ -1,0 +1,32 @@
+========================================
+PORT FIX - ashwheel.com
+========================================
+
+PROBLEM FOUND:
+--------------
+Ports Exposes: 3000 (WRONG)
+Ports Mappings: 3000:3000 (WRONG)
+Dockerfile uses: Port 80 (CORRECT)
+
+SOLUTION:
+========================================
+
+1. Go to Configuration → Advanced (scroll down)
+
+2. Network section:
+   
+   Ports Exposes: Change from "3000" to "80"
+   
+   Ports Mappings: DELETE "3000:3000" (make it empty)
+
+3. Click "Save"
+
+4. Click "Redeploy"
+
+5. Wait 2-3 minutes
+
+6. Test: https://ashwheel.com
+
+DONE! ✅
+
+========================================

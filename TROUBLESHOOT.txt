@@ -1,0 +1,104 @@
+========================================
+TROUBLESHOOTING - ashwheel.com
+========================================
+
+ERROR: "no available server"
+
+QUICK FIXES:
+========================================
+
+1. CHECK DNS SETTINGS
+--------------------------
+Domain registrar me check karo:
+
+A Record:
+Name: @
+Value: YOUR_VPS_IP (same as ashwheel.cloud)
+TTL: 300
+
+A Record:
+Name: www
+Value: YOUR_VPS_IP
+TTL: 300
+
+DNS propagation: 5-30 minutes wait karo
+
+
+2. CHECK COOLIFY DOMAIN SETTINGS
+--------------------------
+Coolify Dashboard → Your App → Domains
+
+Correct format:
+ashwheel.com,www.ashwheel.com
+
+NOT:
+https://ashwheel.com
+http://ashwheel.com
+
+
+3. CHECK APPLICATION STATUS
+--------------------------
+Coolify → Application → Logs
+
+Container running hai ya nahi check karo
+Build successful hua ya nahi
+
+
+4. CHECK PORT MAPPING
+--------------------------
+Coolify → Application → Configuration
+Port: 80 (correct)
+
+
+5. FORCE REDEPLOY
+--------------------------
+Coolify → Application
+Click "Redeploy" button
+
+
+6. CHECK NGINX CONFIG
+--------------------------
+If using custom nginx, check:
+- Server name correct hai
+- Port 80 listen kar raha hai
+
+
+COMMON SOLUTIONS:
+========================================
+
+Solution A: DNS not configured
+→ Add A records in domain registrar
+
+Solution B: Wrong domain format in Coolify
+→ Use: ashwheel.com,www.ashwheel.com
+
+Solution C: Container not running
+→ Check logs, redeploy
+
+Solution D: SSL certificate pending
+→ Wait 2-3 minutes for Let's Encrypt
+
+Solution E: Firewall blocking
+→ Check ports 80, 443 open
+
+
+VERIFY DNS:
+========================================
+Run in terminal:
+
+nslookup ashwheel.com
+ping ashwheel.com
+
+Should show your VPS IP
+
+
+IMMEDIATE ACTION:
+========================================
+1. Check Coolify logs
+2. Verify DNS A records
+3. Redeploy application
+4. Wait 5 minutes
+5. Clear browser cache
+6. Try again
+
+========================================

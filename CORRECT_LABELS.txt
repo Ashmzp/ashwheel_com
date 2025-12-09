@@ -1,0 +1,50 @@
+========================================
+CORRECT CADDY LABELS - ashwheel.com
+========================================
+
+Copy paste these EXACT labels in Coolify:
+
+caddy_0=ashwheel.com
+caddy_0.encode=zstd gzip
+caddy_0.reverse_proxy={{upstreams 80}}
+caddy_0.header=-Server
+caddy_0.try_files={path} /index.html /index.php
+
+caddy_1=www.ashwheel.com
+caddy_1.encode=zstd gzip
+caddy_1.reverse_proxy={{upstreams 80}}
+caddy_1.header=-Server
+caddy_1.try_files={path} /index.html /index.php
+
+caddy_ingress_network=coolify
+
+========================================
+HOW TO APPLY:
+========================================
+
+1. Coolify Dashboard → ashwheel.com app
+
+2. Configuration → Advanced → Scroll down
+
+3. Container Labels section:
+   - DELETE all existing labels
+   - PASTE above labels exactly
+
+4. Click "Save"
+
+5. Click "Redeploy"
+
+6. Wait 2-3 minutes
+
+7. Test: https://ashwheel.com
+
+========================================
+NOTES:
+========================================
+
+- NO Traefik labels needed (Coolify uses Caddy)
+- NO handle_path labels
+- NO :// labels
+- Keep it simple and clean
+
+========================================

@@ -12,9 +12,7 @@ import React, { useRef, useEffect, useState } from 'react';
     import { useToast } from '@/components/ui/use-toast';
     import { Upload, Download, Trash2, BringToFront, SendToBack, RotateCw, ZoomIn, ZoomOut, Crop, Layers } from 'lucide-react';
     import ToolWrapper from '@/components/ToolWrapper';
-    import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-    import Cropper from 'react-easy-crop';
-    import { getCroppedImg } from '@/utils/imageProcessing';
+    import SimpleCropDialog from '@/components/ProfessionalCrop/SimpleCropDialog';
 
     const pageSizes = {
         'A4': { width: 210, height: 297 }, // mm
@@ -34,9 +32,6 @@ import React, { useRef, useEffect, useState } from 'react';
 
         const [isCropping, setIsCropping] = useState(false);
         const [croppingImage, setCroppingImage] = useState(null);
-        const [crop, setCrop] = useState({ x: 0, y: 0 });
-        const [zoom, setZoom] = useState(1);
-        const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
 
         useEffect(() => {
             const size = pageSizes[canvasSize] || customSize;
@@ -168,9 +163,7 @@ import React, { useRef, useEffect, useState } from 'react';
             setCustomSize(prev => ({ ...prev, [dimension]: Number(e.target.value) }));
         };
 
-        const onCropComplete = (croppedArea, croppedAreaPixels) => {
-            setCroppedAreaPixels(croppedAreaPixels);
-        };
+
 
         const startCrop = () => {
             const activeObject = getActiveObject();
@@ -182,21 +175,15 @@ import React, { useRef, useEffect, useState } from 'react';
             }
         };
 
-        const finishCrop = async () => {
-            if (!croppingImage || !croppedAreaPixels) return;
-            try {
-                const croppedImageSrc = await getCroppedImg(croppingImage, croppedAreaPixels);
-                const activeObject = getActiveObject();
-                if (activeObject) {
-                    activeObject.setSrc(croppedImageSrc, () => {
-                        fabricCanvasRef.current.renderAll();
-                    });
-                }
-                setIsCropping(false);
-                setCroppingImage(null);
-            } catch (e) {
-                toast({ title: "Crop Failed", description: "Could not crop the image.", variant: "destructive" });
+        const handleCropComplete = (croppedUrl) => {
+            const activeObject = getActiveObject();
+            if (activeObject) {
+                activeObject.setSrc(croppedUrl, () => {
+                    fabricCanvasRef.current.renderAll();
+                });
             }
+            setIsCropping(false);
+            setCroppingImage(null);
         };
 
         const howToUse = (
@@ -282,30 +269,12 @@ import React, { useRef, useEffect, useState } from 'react';
                         </div>
                     </div>
                 </div>
-                <Dialog open={isCropping} onOpenChange={setIsCropping}>
-                    <DialogContent className="max-w-4xl w-[90vw] h-[85vh] flex flex-col">
-                        <DialogHeader>
-                            <DialogTitle>Crop Image</DialogTitle>
-                        </DialogHeader>
-                        <div className="relative flex-1 my-4">
-                            {croppingImage && (
-                                <Cropper
-                                    image={croppingImage}
-                                    crop={crop}
-                                    zoom={zoom}
-                                    aspect={4 / 3}
-                                    onCropChange={setCrop}
-                                    onZoomChange={setZoom}
-                                    onCropComplete={onCropComplete}
-                                />
-                            )}
-                        </div>
-                        <DialogFooter>
-                            <Button variant="outline" onClick={() => setIsCropping(false)}>Cancel</Button>
-                            <Button onClick={finishCrop}>Apply Crop</Button>
-                        </DialogFooter>
-                    </DialogContent>
-                </Dialog>
+                <SimpleCropDialog
+                    isOpen={isCropping}
+                    onClose={() => setIsCropping(false)}
+                    imageUrl={croppingImage}
+                    onCropComplete={handleCropComplete}
+                />
             </ToolWrapper>
             </>
         );
