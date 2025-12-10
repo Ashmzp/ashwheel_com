@@ -1,0 +1,84 @@
+# Complete Server Setup Commands
+# Copy-paste these on server (SSH session)
+
+# ============================================
+# Step 1: Upload find script
+# ============================================
+# Run on Windows:
+scp FIND_STORAGE_PATH.sh root@31.97.235.213:~/
+
+# ============================================
+# Step 2: SSH to server
+# ============================================
+ssh root@31.97.235.213
+
+# ============================================
+# Step 3: Find storage path
+# ============================================
+chmod +x ~/FIND_STORAGE_PATH.sh
+bash ~/FIND_STORAGE_PATH.sh
+
+# ============================================
+# Step 4: Get Postgres password
+# ============================================
+# Check docker compose or env file
+cat ~/supabase/.env | grep POSTGRES_PASSWORD
+# OR
+docker exec supabase-db env | grep POSTGRES_PASSWORD
+
+# ============================================
+# Step 5: Edit backup script
+# ============================================
+nano ~/supabase-backup-complete.sh
+
+# Update these lines:
+# Line 19: DB_PASSWORD="paste-password-here"
+# Line 22: STORAGE_PATH="paste-path-from-step3"
+
+# Save: Ctrl+X, then Y, then Enter
+
+# ============================================
+# Step 6: Make scripts executable
+# ============================================
+chmod +x ~/supabase-backup-complete.sh
+chmod +x ~/supabase-restore.sh
+
+# ============================================
+# Step 7: Set timezone to IST
+# ============================================
+timedatectl set-timezone Asia/Kolkata
+timedatectl
+
+# ============================================
+# Step 8: Test backup
+# ============================================
+./supabase-backup-complete.sh
+
+# ============================================
+# Step 9: Check backup files
+# ============================================
+ls -lh /root/supabase-backups/
+ls -lh /root/supabase-storage-backups/
+tail -50 /var/log/supabase-backup.log
+
+# ============================================
+# Step 10: Setup cron (2 AM IST daily)
+# ============================================
+crontab -e
+
+# Add this line at the end:
+0 2 * * * /root/supabase-backup-complete.sh
+
+# Save: Ctrl+X, then Y, then Enter
+
+# ============================================
+# Step 11: Verify cron
+# ============================================
+crontab -l
+systemctl status cron
+
+# ============================================
+# DONE! ✅
+# ============================================
+# Backup will run daily at 2 AM IST
+# Check tomorrow: ls -lh /root/supabase-backups/

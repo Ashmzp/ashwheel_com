@@ -193,4 +193,56 @@ body::before {
 }
 
 
+/* Crop Dialog Positioning */
+[data-radix-dialog-content] {
+  position: fixed !important;
+  top: 2rem !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  max-height: 90vh !important;
+  overflow-y: auto !important;
+}
+
+/* Crop Dialog Specific Styles */
+.crop-dialog-content {
+  position: fixed !important;
+  top: 1rem !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  max-height: 95vh !important;
+  width: 95vw !important;
+  max-width: 80rem !important;
+  z-index: 50 !important;
+}
+
+/* Ensure crop canvas is responsive */
+.crop-canvas-container {
+  width: 100% !important;
+  height: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.crop-canvas-container canvas {
+  max-width: 100% !important;
+  max-height: 100% !important;
+  object-fit: contain !important;
+}
+
+/* Loading overlay for crop dialogs */
+.crop-loading-overlay {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  background: rgba(255, 255, 255, 0.95) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  z-index: 10 !important;
+  border-radius: 0.5rem !important;
+}
+
 /* Suppress Vite WebSocket errors in console */

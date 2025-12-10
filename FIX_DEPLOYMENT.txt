@@ -1,0 +1,67 @@
+========================================
+FIX: "no available server" - ashwheel.com
+========================================
+
+DNS: ✅ Working (31.97.235.213)
+Coolify: ✅ Running
+Issue: ❌ Proxy/Port Configuration
+
+SOLUTION:
+========================================
+
+1. CHECK PORTS IN COOLIFY
+--------------------------
+Configuration → Ports Exposes:
+Change to: 3000:80
+
+Or try: 80
+
+
+2. CHECK NETWORK SETTINGS
+--------------------------
+Configuration → Advanced → Network
+Should be on Coolify's default network
+
+
+3. RESTART PROXY
+--------------------------
+Coolify Dashboard → Servers → Your Server
+Click "Restart Proxy"
+
+
+4. CHECK LOGS
+--------------------------
+Logs tab → Check for errors:
+- Port binding issues
+- Nginx errors
+- Container crashes
+
+
+5. VERIFY DOCKERFILE PORT
+--------------------------
+Our Dockerfile exposes port 80
+Coolify should map it correctly
+
+
+IMMEDIATE FIX:
+========================================
+
+Option A: Change Port Mapping
+→ Configuration → Ports Exposes → 3000:80
+
+Option B: Check Container
+→ Terminal tab → Run: curl localhost:80
+
+Option C: Restart Everything
+→ Stop → Redeploy → Restart Proxy
+
+
+MOST LIKELY FIX:
+========================================
+Coolify → Configuration → Ports Exposes
+Change from: 80
+To: 3000:80
+
+Then click Save & Redeploy
+
+========================================

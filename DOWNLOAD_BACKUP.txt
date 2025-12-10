@@ -1,0 +1,38 @@
+# Download Backup from Server
+# IMPORTANT: Run these commands from WINDOWS (not from server)
+
+# ============================================
+# Method 1: Download Single Backup
+# ============================================
+# Open CMD or PowerShell on Windows, then:
+scp root@31.97.235.213:/root/supabase-backups/backup_20251208_170508.sql.gz .
+
+# ============================================
+# Method 2: Download to Desktop
+# ============================================
+cd C:\Users\ASHISH\Desktop
+scp root@31.97.235.213:/root/supabase-backups/backup_20251208_170508.sql.gz .
+
+# ============================================
+# Method 3: Download All Backups
+# ============================================
+mkdir C:\Users\ASHISH\Desktop\backups
+cd C:\Users\ASHISH\Desktop\backups
+scp root@31.97.235.213:/root/supabase-backups/*.sql.gz .
+
+# ============================================
+# Method 4: List backups first
+# ============================================
+ssh root@31.97.235.213 "ls -lh /root/supabase-backups/"
+
+# Then download latest
+scp root@31.97.235.213:/root/supabase-backups/backup_20251208_170508.sql.gz .
+
+# ============================================
+# Method 5: Download with WinSCP (GUI)
+# ============================================
+# 1. Download WinSCP: https://winscp.net/
+# 2. Connect to: 31.97.235.213
+# 3. Username: root
+# 4. Navigate to: /root/supabase-backups/
+# 5. Drag files to your PC

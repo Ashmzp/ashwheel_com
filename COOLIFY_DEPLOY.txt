@@ -1,0 +1,61 @@
+========================================
+COOLIFY DEPLOYMENT - ashwheel.com
+========================================
+
+STEP 1: Coolify Dashboard
+--------------------------
+1. Login: https://coolify.ashwheel.cloud/
+2. Go to existing project or create new
+3. Click "New Resource" → "Application"
+
+STEP 2: Application Setup
+--------------------------
+1. Source: GitHub
+2. Repository: Ashmzp/ashwheel_com
+3. Branch: main
+4. Build Pack: Dockerfile
+5. Port: 80
+
+STEP 3: Domain & SSL
+--------------------------
+1. Domains: ashwheel.com,www.ashwheel.com
+2. SSL: Auto (Let's Encrypt) ✅
+3. Force HTTPS: Enable ✅
+
+STEP 4: Environment Variables
+--------------------------
+Add in Coolify:
+
+VITE_SUPABASE_URL=https://supabase.ashwheel.cloud
+VITE_SUPABASE_ANON_KEY=<GET_FROM_SUPABASE_DASHBOARD>
+
+To get ANON_KEY:
+- Go to: https://supabase.ashwheel.cloud/
+- Project Settings → API
+- Copy "anon public" key
+
+STEP 5: Deploy
+--------------------------
+1. Click "Deploy"
+2. Wait for build (2-3 minutes)
+3. Done! ✅
+
+STEP 6: DNS Settings (If not done)
+--------------------------
+Add these records in your domain registrar:
+
+Type    Name    Value                   TTL
+A       @       YOUR_SERVER_IP          300
+A       www     YOUR_SERVER_IP          300
+
+========================================
+VERIFICATION
+========================================
+After deployment:
+✅ https://ashwheel.com
+✅ https://www.ashwheel.com
+✅ SSL certificate active
+✅ All tools working
+✅ Supabase connected
+
+========================================

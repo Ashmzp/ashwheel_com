@@ -1,0 +1,40 @@
+========================================
+DNS CHANGES - ashwheel.com
+========================================
+
+ADD THESE 2 NEW RECORDS:
+========================================
+
+Type: A
+Name: coolify
+Value: 31.97.235.213
+TTL: 300
+
+Type: A
+Name: supabase
+Value: 31.97.235.213
+TTL: 300
+
+========================================
+CURRENT DNS (Keep as is):
+========================================
+
+✅ A @ 31.97.235.213 (main domain)
+✅ A www 31.97.235.213 (www subdomain)
+✅ A * 31.97.235.213 (wildcard - keep)
+✅ All mail records (keep)
+✅ All CAA records (keep)
+
+========================================
+AFTER ADDING DNS:
+========================================
+
+Wait 5-10 minutes for DNS propagation
+
+Then test:
+nslookup coolify.ashwheel.com
+nslookup supabase.ashwheel.com
+
+Should show: 31.97.235.213
+
+========================================

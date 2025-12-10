@@ -1,0 +1,67 @@
+# Simple Backup Setup (Matches Your Current Setup)
+
+# ============================================
+# Step 1: Upload new script
+# ============================================
+scp supabase-backup-simple.sh root@31.97.235.213:~/
+scp supabase-restore-simple.sh root@31.97.235.213:~/
+
+# ============================================
+# Step 2: SSH to server
+# ============================================
+ssh root@31.97.235.213
+
+# ============================================
+# Step 3: Replace old script
+# ============================================
+mv ~/supabase-backup.sh ~/supabase-backup-old.sh
+mv ~/supabase-backup-simple.sh ~/supabase-backup.sh
+chmod +x ~/supabase-backup.sh
+chmod +x ~/supabase-restore-simple.sh
+
+# ============================================
+# Step 4: Set timezone to IST
+# ============================================
+timedatectl set-timezone Asia/Kolkata
+timedatectl
+
+# ============================================
+# Step 5: Test backup
+# ============================================
+./supabase-backup.sh
+
+# ============================================
+# Step 6: Check result
+# ============================================
+ls -lh /root/supabase-backups/ | tail -3
+tail -20 /var/log/supabase-backup.log
+
+# ============================================
+# Step 7: Setup cron (2 AM IST daily)
+# ============================================
+crontab -e
+
+# Remove old line if exists, add this:
+0 2 * * * /root/supabase-backup.sh
+
+# Save: Ctrl+X, Y, Enter
+
+# ============================================
+# Step 8: Verify cron
+# ============================================
+crontab -l
+
+# ============================================
+# DONE! ✅
+# ============================================
+
+# ============================================
+# How to Restore:
+# ============================================
+./supabase-restore-simple.sh backup_20251208_103014.sql.gz
+
+# ============================================
+# Check backups:
+# ============================================
+ls -lh /root/supabase-backups/
+tail -f /var/log/supabase-backup.log

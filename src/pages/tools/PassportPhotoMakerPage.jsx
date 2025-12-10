@@ -13,8 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { useToast } from '@/components/ui/use-toast';
 import { ArrowLeft, HelpCircle } from 'lucide-react';
 
-import { getCroppedImg } from '@/utils/imageProcessing';
-import CropDialog from '@/components/PassportPhotoMaker/CropDialog';
+import SimpleCropDialog from '@/components/ProfessionalCrop/SimpleCropDialog';
 import SetupView from '@/components/PassportPhotoMaker/SetupView';
 import ResultView from '@/components/PassportPhotoMaker/ResultView';
 
@@ -47,20 +46,11 @@ const PassportPhotoMakerPage = () => {
   const [imagePositions, setImagePositions] = useState({});
   
   const [currentCroppingPhoto, setCurrentCroppingPhoto] = useState(null);
-  const [crop, setCrop] = useState({ x: 0, y: 0 });
-  const [zoom, setZoom] = useState(1);
-  const [rotation, setRotation] = useState(0);
-  const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
-  const [initialCrop, setInitialCrop] = useState(null);
 
   const fileInputRef = useRef(null);
   const { toast } = useToast();
 
   const aspect = 3.5 / 4.5;
-
-  const onCropComplete = useCallback((_, croppedAreaPixelsValue) => {
-    setCroppedAreaPixels(croppedAreaPixelsValue);
-  }, []);
 
   const handleImageUpload = (e) => {
     const files = Array.from(e.target.files);
@@ -91,33 +81,12 @@ const PassportPhotoMakerPage = () => {
   };
 
   const startCropping = (photo) => {
-    setInitialCrop({ x: 0, y: 0, width: photo.width, height: photo.height });
     setCurrentCroppingPhoto(photo);
-    setCrop({ x: 0, y: 0 });
-    setZoom(1);
-    setRotation(0);
   };
 
-  const finishCropping = async () => {
-    if (!currentCroppingPhoto || !croppedAreaPixels) {
-       toast({ title: 'Crop Error', description: 'Could not crop image. Please try again.', variant: 'destructive' });
-       return;
-    }
-    try {
-      const croppedImageResult = await getCroppedImg(
-        currentCroppingPhoto.source,
-        croppedAreaPixels,
-        rotation,
-        { horizontal: false, vertical: false },
-        3.5, // target width in cm
-        4.5, // target height in cm
-        300  // target dpi
-      );
-      setPhotos(prevPhotos => prevPhotos.map(p => p.id === currentCroppingPhoto.id ? { ...p, cropped: croppedImageResult } : p));
-      setCurrentCroppingPhoto(null);
-    } catch (e) {
-      toast({ title: 'Crop Failed', description: 'Could not crop the image.', variant: 'destructive' });
-    }
+  const handleCropComplete = (croppedUrl) => {
+    setPhotos(prevPhotos => prevPhotos.map(p => p.id === currentCroppingPhoto.id ? { ...p, cropped: croppedUrl } : p));
+    setCurrentCroppingPhoto(null);
   };
 
   const removePhoto = (id) => {
@@ -254,20 +223,12 @@ const PassportPhotoMakerPage = () => {
         </main>
       </div>
 
-      <CropDialog
+      <SimpleCropDialog
         isOpen={!!currentCroppingPhoto}
         onClose={() => setCurrentCroppingPhoto(null)}
-        photo={currentCroppingPhoto}
-        crop={crop}
-        setCrop={setCrop}
-        zoom={zoom}
-        setZoom={setZoom}
-        rotation={rotation}
-        setRotation={setRotation}
-        onCropComplete={onCropComplete}
-        onFinishCropping={finishCropping}
-        aspect={aspect}
-        initialCrop={initialCrop}
+        imageUrl={currentCroppingPhoto?.source}
+        onCropComplete={handleCropComplete}
+        aspectRatio={aspect}
       />
     </DndProvider>
   );
