@@ -15,7 +15,7 @@ const SimpleCropDialog = ({ isOpen, onClose, imageUrl, onCropComplete, aspectRat
         if (!isOpen || !imageUrl || !canvasRef.current) return;
 
         setIsLoading(true);
-        
+
         // Set a timeout to prevent infinite loading
         const loadingTimeout = setTimeout(() => {
             console.error('Image loading timeout');
@@ -67,7 +67,7 @@ const SimpleCropDialog = ({ isOpen, onClose, imageUrl, onCropComplete, aspectRat
 
             canvas.add(fabricImg);
             imageObjectRef.current = fabricImg;
-            
+
             // Ensure image is visible and canvas is rendered
             canvas.setActiveObject(fabricImg);
             canvas.renderAll();
@@ -75,53 +75,60 @@ const SimpleCropDialog = ({ isOpen, onClose, imageUrl, onCropComplete, aspectRat
             const cropWidth = fabricImg.getScaledWidth() * 0.8;
             const cropHeight = aspectRatio ? cropWidth / aspectRatio : fabricImg.getScaledHeight() * 0.8;
 
-                const cropRect = new fabric.Rect({
-                    left: canvas.width / 2,
-                    top: canvas.height / 2,
-                    width: cropWidth,
-                    height: cropHeight,
-                    fill: 'rgba(59, 130, 246, 0.1)',
-                    stroke: '#3b82f6',
-                    strokeWidth: 3,
-                    strokeDashArray: [10, 5],
-                    originX: 'center',
-                    originY: 'center',
-                    selectable: true,
-                    hasControls: true,
-                    lockRotation: true,
-                    cornerColor: '#3b82f6',
-                    cornerSize: 12,
-                    transparentCorners: false,
-                    borderColor: '#3b82f6',
-                });
+            const cropRect = new fabric.Rect({
+                left: canvas.width / 2,
+                top: canvas.height / 2,
+                width: cropWidth,
+                height: cropHeight,
+                fill: 'rgba(59, 130, 246, 0.1)',
+                stroke: '#3b82f6',
+                strokeWidth: 3,
+                strokeDashArray: [10, 5],
+                originX: 'center',
+                originY: 'center',
+                selectable: true,
+                hasControls: true,
+                lockRotation: true,
+                cornerColor: '#3b82f6',
+                cornerSize: 12,
+                transparentCorners: false,
+                borderColor: '#3b82f6',
+            });
 
-                if (aspectRatio) {
-                    cropRect.setControlsVisibility({
-                        mt: false,
-                        mb: false,
-                        ml: false,
-                        mr: false,
-                    });
-                }
+            if (aspectRatio) {
+                cropRect.setControlsVisibility({
+                    mt: false,
+                    mb: false,
+                    ml: false,
+                    mr: false,
+                });
+            }
 
             canvas.add(cropRect);
             cropRectRef.current = cropRect;
-            
+
             // Final setup and render
             canvas.setActiveObject(fabricImg);
             canvas.renderAll();
-            
+
             // Clear timeout and set loading to false
             clearTimeout(loadingTimeout);
             setIsLoading(false);
         };
-        
+
         img.onerror = () => {
             clearTimeout(loadingTimeout);
             setIsLoading(false);
         };
-        
+
         img.src = imageUrl;
+
+        // CRITICAL FIX: Handle cached images that load instantly
+        // If image is already complete (loaded from cache), onload won't fire
+        // So we manually trigger it
+        if (img.complete && img.naturalWidth > 0) {
+            img.onload();
+        }
 
 
         return () => {
