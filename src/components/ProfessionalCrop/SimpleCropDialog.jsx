@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { fabric } from 'fabric';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { RotateCw, Maximize2, Loader2 } from 'lucide-react';
 
@@ -15,14 +15,20 @@ const SimpleCropDialog = ({ isOpen, onClose, imageUrl, onCropComplete, aspectRat
         if (!isOpen || !imageUrl || !canvasRef.current) return;
 
         setIsLoading(true);
+        
+        // Set a timeout to prevent infinite loading
+        const loadingTimeout = setTimeout(() => {
+            console.error('Image loading timeout');
+            setIsLoading(false);
+        }, 10000); // 10 second timeout
 
         // Clear any existing canvas
         if (fabricCanvasRef.current) {
             fabricCanvasRef.current.dispose();
         }
 
-        // Calculate responsive canvas size
-        const maxWidth = Math.min(window.innerWidth * 0.85, 900);
+        // Calculate responsive canvas size - fit to screen better
+        const maxWidth = Math.min(window.innerWidth * 0.85, 950);
         const maxHeight = Math.min(window.innerHeight * 0.6, 600);
 
         const canvas = new fabric.Canvas(canvasRef.current, {
@@ -33,41 +39,41 @@ const SimpleCropDialog = ({ isOpen, onClose, imageUrl, onCropComplete, aspectRat
 
         fabricCanvasRef.current = canvas;
 
-        // Load image with proper error handling
-        fabric.Image.fromURL(
-            imageUrl,
-            (img) => {
-                if (!img || !img.width || !img.height) {
-                    setIsLoading(false);
-                    return;
-                }
+        // Simple direct image loading
+        const img = new Image();
+        img.onload = () => {
+            const fabricImg = new fabric.Image(img);
 
-                const scale = Math.min(
-                    (canvas.width * 0.7) / img.width,
-                    (canvas.height * 0.7) / img.height
-                );
+            const scale = Math.min(
+                (canvas.width * 0.7) / fabricImg.width,
+                (canvas.height * 0.7) / fabricImg.height
+            );
 
-                img.set({
-                    left: canvas.width / 2,
-                    top: canvas.height / 2,
-                    originX: 'center',
-                    originY: 'center',
-                    scaleX: scale,
-                    scaleY: scale,
-                    selectable: true,
-                    hasControls: true,
-                    hasBorders: true,
-                    borderColor: '#3b82f6',
-                    cornerColor: '#3b82f6',
-                    cornerSize: 8,
-                    transparentCorners: false,
-                });
+            fabricImg.set({
+                left: canvas.width / 2,
+                top: canvas.height / 2,
+                originX: 'center',
+                originY: 'center',
+                scaleX: scale,
+                scaleY: scale,
+                selectable: true,
+                hasControls: true,
+                hasBorders: true,
+                borderColor: '#3b82f6',
+                cornerColor: '#3b82f6',
+                cornerSize: 8,
+                transparentCorners: false,
+            });
 
-                canvas.add(img);
-                imageObjectRef.current = img;
+            canvas.add(fabricImg);
+            imageObjectRef.current = fabricImg;
+            
+            // Ensure image is visible and canvas is rendered
+            canvas.setActiveObject(fabricImg);
+            canvas.renderAll();
 
-                const cropWidth = img.getScaledWidth() * 0.8;
-                const cropHeight = aspectRatio ? cropWidth / aspectRatio : img.getScaledHeight() * 0.8;
+            const cropWidth = fabricImg.getScaledWidth() * 0.8;
+            const cropHeight = aspectRatio ? cropWidth / aspectRatio : fabricImg.getScaledHeight() * 0.8;
 
                 const cropRect = new fabric.Rect({
                     left: canvas.width / 2,
@@ -98,16 +104,28 @@ const SimpleCropDialog = ({ isOpen, onClose, imageUrl, onCropComplete, aspectRat
                     });
                 }
 
-                canvas.add(cropRect);
-                cropRectRef.current = cropRect;
-                canvas.setActiveObject(img);
-                canvas.renderAll();
-                setIsLoading(false);
-            },
-            { crossOrigin: 'anonymous' }
-        );
+            canvas.add(cropRect);
+            cropRectRef.current = cropRect;
+            
+            // Final setup and render
+            canvas.setActiveObject(fabricImg);
+            canvas.renderAll();
+            
+            // Clear timeout and set loading to false
+            clearTimeout(loadingTimeout);
+            setIsLoading(false);
+        };
+        
+        img.onerror = () => {
+            clearTimeout(loadingTimeout);
+            setIsLoading(false);
+        };
+        
+        img.src = imageUrl;
+
 
         return () => {
+            clearTimeout(loadingTimeout);
             if (fabricCanvasRef.current) {
                 fabricCanvasRef.current.dispose();
                 fabricCanvasRef.current = null;
@@ -166,21 +184,23 @@ const SimpleCropDialog = ({ isOpen, onClose, imageUrl, onCropComplete, aspectRat
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose} modal={true}>
-            <DialogContent className="max-w-4xl w-[90vw] h-auto max-h-[85vh] flex flex-col p-4 gap-2 overflow-hidden">
+            <DialogContent className="crop-dialog-content flex flex-col p-3 gap-2 overflow-hidden">
                 <DialogHeader className="flex-shrink-0 pb-2">
                     <DialogTitle className="text-lg">Professional Crop - Free Drag & Resize</DialogTitle>
+                    <DialogDescription>Drag, resize and crop your image</DialogDescription>
                 </DialogHeader>
-                <div className="flex-1 min-h-[400px] max-h-[calc(85vh-180px)] flex flex-col items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg p-3 relative overflow-hidden">
+                <div className="flex-1 min-h-[450px] max-h-[calc(90vh-200px)] bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg p-3 relative overflow-hidden">
                     {isLoading && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-white/90 rounded-lg z-10">
+                        <div className="crop-loading-overlay">
                             <div className="text-center">
-                                <Loader2 className="w-10 h-10 animate-spin text-blue-600 mx-auto mb-2" />
-                                <p className="text-sm text-gray-600">Loading image...</p>
+                                <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-3" />
+                                <p className="text-base font-medium text-gray-700">Loading image...</p>
+                                <p className="text-sm text-gray-500 mt-1">Please wait while we prepare your image</p>
                             </div>
                         </div>
                     )}
-                    <div className="relative flex items-center justify-center w-full h-full">
-                        <canvas ref={canvasRef} className="border-2 border-gray-300 rounded-lg shadow-lg" style={{ maxWidth: '100%', maxHeight: '100%' }} />
+                    <div className="crop-canvas-container">
+                        <canvas ref={canvasRef} className="border-2 border-gray-300 rounded-lg shadow-lg" />
                     </div>
                 </div>
                 <div className="flex-shrink-0 text-center py-1">
