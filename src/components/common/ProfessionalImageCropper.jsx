@@ -75,7 +75,7 @@ const ProfessionalImageCropper = ({ imageSrc, onCancel, onSave, initialAspectRat
 
         // Set a timeout to prevent infinite loading
         const loadingTimeout = setTimeout(() => {
-            console.error('Image loading timeout in ProfessionalImageCropper');
+            console.error('Image loading timeout. Please try again.');
             setLoadError('Image loading timeout. Please try again.');
             setIsImageLoading(false);
         }, 10000); // 10 second timeout
@@ -90,20 +90,13 @@ const ProfessionalImageCropper = ({ imageSrc, onCancel, onSave, initialAspectRat
             img.crossOrigin = 'anonymous';
         }
 
-        img.onload = () => {
-            // CRITICAL: Prevent double execution
-            if (hasLoaded) {
-                console.log('ProfessionalImageCropper: onload already executed, skipping');
-                return;
-            }
+        const handleLoad = () => {
+            if (hasLoaded) return;
             hasLoaded = true;
-
             console.log('ProfessionalImageCropper: Image loaded', { width: img.width, height: img.height });
             clearTimeout(loadingTimeout);
 
-            // Now create fabric image from the loaded Image element
             const fabricImg = new fabric.Image(img);
-
             if (!fabricImg) {
                 setLoadError('Failed to load image');
                 setIsImageLoading(false);
@@ -136,12 +129,10 @@ const ProfessionalImageCropper = ({ imageSrc, onCancel, onSave, initialAspectRat
             fabricCanvas.setActiveObject(fabricImg);
             setImageObj(fabricImg);
 
-            // Create Crop Rect with MULTICOLOUR gradient border
+            // Create Crop Rect
             let cropWidth, cropHeight;
 
             if (initialAspectRatio) {
-                // Determine size based on aspect ratio
-                // Try to fit within 50% of canvas
                 if (initialAspectRatio > 1) {
                     cropWidth = canvasWidth * 0.5;
                     cropHeight = cropWidth / initialAspectRatio;
@@ -154,21 +145,15 @@ const ProfessionalImageCropper = ({ imageSrc, onCancel, onSave, initialAspectRat
                 cropHeight = fabricImg.getScaledHeight() * 0.8;
             }
 
-            // Create vibrant multicolour gradient for crop box
             const gradient = new fabric.Gradient({
                 type: 'linear',
-                coords: {
-                    x1: 0,
-                    y1: 0,
-                    x2: cropWidth,
-                    y2: cropHeight
-                },
+                coords: { x1: 0, y1: 0, x2: cropWidth, y2: cropHeight },
                 colorStops: [
-                    { offset: 0, color: '#00fff2' }, // Cyan
-                    { offset: 0.25, color: '#00ff88' }, // Green
-                    { offset: 0.5, color: '#ffd000' }, // Yellow
-                    { offset: 0.75, color: '#ff6b00' }, // Orange
-                    { offset: 1, color: '#ff00ea' } // Magenta
+                    { offset: 0, color: '#00fff2' },
+                    { offset: 0.25, color: '#00ff88' },
+                    { offset: 0.5, color: '#ffd000' },
+                    { offset: 0.75, color: '#ff6b00' },
+                    { offset: 1, color: '#ff00ea' }
                 ]
             });
 
@@ -180,13 +165,13 @@ const ProfessionalImageCropper = ({ imageSrc, onCancel, onSave, initialAspectRat
                 width: cropWidth,
                 height: cropHeight,
                 fill: 'transparent',
-                stroke: gradient, // Multicolour gradient border
-                strokeWidth: 4, // Bold border
-                cornerColor: '#00fff2', // Cyan corners
-                cornerStrokeColor: '#ff00ea', // Magenta corner borders
+                stroke: gradient,
+                strokeWidth: 4,
+                cornerColor: '#00fff2',
+                cornerStrokeColor: '#ff00ea',
                 cornerSize: 14,
                 transparentCorners: false,
-                borderColor: '#ffd000', // Yellow selection border
+                borderColor: '#ffd000',
                 hasRotatingPoint: false,
                 lockRotation: true,
                 lockUniScaling: !!initialAspectRatio,
@@ -196,16 +181,14 @@ const ProfessionalImageCropper = ({ imageSrc, onCancel, onSave, initialAspectRat
 
             fabricCanvas.add(rect);
             setCropRect(rect);
+            rect.bringToFront();
             fabricCanvas.renderAll();
 
-            // Bring crop box to front
-            rect.bringToFront();
-
-            // Image loaded successfully
             setIsImageLoading(false);
             console.log('ProfessionalImageCropper: Setup complete');
         };
 
+        img.onload = handleLoad;
         img.onerror = (error) => {
             console.error('ProfessionalImageCropper: Image load error', error);
             clearTimeout(loadingTimeout);
@@ -215,12 +198,8 @@ const ProfessionalImageCropper = ({ imageSrc, onCancel, onSave, initialAspectRat
 
         img.src = imageSrc;
 
-        // CRITICAL FIX: Handle cached images that load instantly
-        // If image is already complete (loaded from cache), onload won't fire naturally
-        // So we manually trigger it (hasLoaded flag will prevent double execution)
         if (img.complete && img.naturalWidth > 0) {
-            console.log('ProfessionalImageCropper: Image was cached, triggering onload');
-            img.onload();
+            handleLoad();
         }
 
         return () => {

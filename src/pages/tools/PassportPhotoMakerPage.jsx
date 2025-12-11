@@ -244,12 +244,14 @@ const PassportPhotoMakerPage = () => {
         </main>
       </div>
 
-      <ProfessionalImageCropper
-        imageSrc={currentCroppingPhoto?.source}
-        onCancel={() => setCurrentCroppingPhoto(null)}
-        onSave={handleCropComplete}
-        initialAspectRatio={aspect}
-      />
+      {currentCroppingPhoto && (
+        <ProfessionalImageCropper
+          imageSrc={currentCroppingPhoto.source}
+          onCancel={() => setCurrentCroppingPhoto(null)}
+          onSave={handleCropComplete}
+          initialAspectRatio={aspect}
+        />
+      )}
     </DndProvider>
   );
 };
