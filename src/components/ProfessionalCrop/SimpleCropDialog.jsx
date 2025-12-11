@@ -39,9 +39,24 @@ const SimpleCropDialog = ({ isOpen, onClose, imageUrl, onCropComplete, aspectRat
 
         fabricCanvasRef.current = canvas;
 
-        // Simple direct image loading
+        // Simple direct image loading with proper error handling
         const img = new Image();
+
+        // CRITICAL FIX: Only set crossOrigin for external URLs, NOT for data URLs!
+        // Setting crossOrigin for data URLs causes CORB (Cross-Origin Read Blocking) errors
+        if (!imageUrl.startsWith('data:') && !imageUrl.startsWith('blob:')) {
+            img.crossOrigin = 'anonymous';
+        }
+
         img.onload = () => {
+            console.log('SimpleCropDialog: Image loaded successfully', {
+                width: img.width,
+                height: img.height,
+                imageUrl: imageUrl?.substring(0, 50) + '...'
+            });
+
+            clearTimeout(loadingTimeout);
+
             const fabricImg = new fabric.Image(img);
 
             const scale = Math.min(
@@ -112,14 +127,22 @@ const SimpleCropDialog = ({ isOpen, onClose, imageUrl, onCropComplete, aspectRat
             canvas.renderAll();
 
             // Clear timeout and set loading to false
+            setIsLoading(false);
+            console.log('SimpleCropDialog: Setup complete, loading=false');
+        };
+
+        img.onerror = (error) => {
+            console.error('SimpleCropDialog: Image loading error', error);
             clearTimeout(loadingTimeout);
             setIsLoading(false);
         };
 
-        img.onerror = () => {
-            clearTimeout(loadingTimeout);
-            setIsLoading(false);
-        };
+        console.log('SimpleCropDialog: Starting image load', {
+            imageUrl: imageUrl?.substring(0, 50) + '...',
+            isOpen,
+            hasCanvas: !!canvasRef.current,
+            isDataUrl: imageUrl.startsWith('data:')
+        });
 
         img.src = imageUrl;
 
@@ -127,6 +150,7 @@ const SimpleCropDialog = ({ isOpen, onClose, imageUrl, onCropComplete, aspectRat
         // If image is already complete (loaded from cache), onload won't fire
         // So we manually trigger it
         if (img.complete && img.naturalWidth > 0) {
+            console.log('SimpleCropDialog: Image was cached, manually triggering onload');
             img.onload();
         }
 
