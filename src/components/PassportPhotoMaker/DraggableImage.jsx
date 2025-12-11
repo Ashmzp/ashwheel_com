@@ -2,8 +2,17 @@ import React from 'react';
 import { Image as KonvaImage } from 'react-konva';
 import useImage from 'use-image';
 
-const DraggableImage = ({ src, onDragEnd, x, y, width, height }) => {
-    const [image] = useImage(src, 'anonymous');
+const DraggableImage = ({ src, onDragEnd, x, y, width, height, onLoad }) => {
+    const [image, status] = useImage(src, 'anonymous');
+    const loadedRef = React.useRef(false);
+
+    React.useEffect(() => {
+        if (status === 'loaded' && onLoad && !loadedRef.current) {
+            loadedRef.current = true;
+            onLoad();
+        }
+    }, [status, onLoad]);
+
     return (
         <KonvaImage
             image={image}

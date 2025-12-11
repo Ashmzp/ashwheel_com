@@ -6,7 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { useToast } from '@/components/ui/use-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, Download, Loader2, ArrowLeft, RefreshCw, Scissors, HelpCircle, FileText, Move, CheckCircle2 } from 'lucide-react';
-import SimpleCropDialog from '@/components/ProfessionalCrop/SimpleCropDialog';
+import ProfessionalImageCropper from '@/components/common/ProfessionalImageCropper';
+import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
 import * as pdfjsLib from "pdfjs-dist";
 import { PDFDocument } from 'pdf-lib';
 import { v4 as uuidv4 } from 'uuid';
@@ -16,8 +17,8 @@ import { Stage, Layer, Image as KonvaImage } from 'react-konva';
 import useImage from 'use-image';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.js',
-  import.meta.url,
+    'pdfjs-dist/build/pdf.worker.min.js',
+    import.meta.url,
 ).toString();
 
 const DraggableCroppedImage = ({ id, src, x, y, onDragEnd }) => {
@@ -47,13 +48,9 @@ const CropAnythingPage = () => {
     const [finalPdfUrl, setFinalPdfUrl] = useState(null);
     const [isProcessing, setIsProcessing] = useState(false);
 
-
-    
     const fileInputRef = useRef(null);
     const stageRef = useRef(null);
     const { toast } = useToast();
-
-
 
     const handleFileChange = async (e) => {
         const selectedFiles = Array.from(e.target.files);
@@ -106,7 +103,7 @@ const CropAnythingPage = () => {
 
         const results = await Promise.all(newFilesPromises);
         const flattenedResults = results.flat().filter(Boolean);
-        
+
         setFiles(flattenedResults);
         setIsProcessing(false);
         if (flattenedResults.length > 0) {
@@ -118,8 +115,9 @@ const CropAnythingPage = () => {
         setCurrentCroppingFileId(fileId);
     };
 
-    const handleCropComplete = (croppedUrl) => {
-        setFiles(files.map(f => f.id === currentCroppingFileId ? { ...f, cropped: croppedUrl } : f));
+    const handleCropSave = (croppedDataUrl) => {
+        if (!currentCroppingFileId) return;
+        setFiles(files.map(f => f.id === currentCroppingFileId ? { ...f, cropped: croppedDataUrl } : f));
         setCurrentCroppingFileId(null);
     };
 
@@ -297,12 +295,17 @@ const CropAnythingPage = () => {
                 </main>
             </div>
 
-            <SimpleCropDialog
-                isOpen={!!currentFileToCrop}
-                onClose={() => setCurrentCroppingFileId(null)}
-                imageUrl={currentFileToCrop?.source}
-                onCropComplete={handleCropComplete}
-            />
+            <Dialog open={!!currentFileToCrop} onOpenChange={(isOpen) => !isOpen && setCurrentCroppingFileId(null)}>
+                <DialogContent className="max-w-none w-[98vw] h-[95vh] !top-[2vh] !translate-y-0 p-0 gap-0 overflow-hidden flex flex-col bg-background border-none">
+                    {currentFileToCrop && (
+                        <ProfessionalImageCropper
+                            imageSrc={currentFileToCrop.source}
+                            onCancel={() => setCurrentCroppingFileId(null)}
+                            onSave={handleCropSave}
+                        />
+                    )}
+                </DialogContent>
+            </Dialog>
         </DndProvider>
     );
 };
