@@ -13,28 +13,28 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { useToast } from '@/components/ui/use-toast';
 import { ArrowLeft, HelpCircle } from 'lucide-react';
 
-import SimpleCropDialog from '@/components/ProfessionalCrop/SimpleCropDialog';
+import ProfessionalImageCropper from '@/components/common/ProfessionalImageCropper';
 import SetupView from '@/components/PassportPhotoMaker/SetupView';
 import ResultView from '@/components/PassportPhotoMaker/ResultView';
 
 const HowToUse = () => (
-    <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-6"
-    >
-        <h3 className="text-lg font-semibold text-blue-800 mb-3 flex items-center">
-            <HelpCircle className="mr-2 h-5 w-5" />
-            How to Use Passport Photo Maker
-        </h3>
-        <ol className="list-decimal list-inside space-y-2 text-gray-700">
-            <li>**Upload Photos:** Click 'Add Photo' to upload one or more images.</li>
-            <li>**Crop Each Photo:** Click the 'Crop' button on each photo to adjust it to the correct passport size aspect ratio.</li>
-            <li>**Set Copies:** Choose how many copies you want for each uploaded photo.</li>
-            <li>**Generate Sheet:** Click 'Generate Photo Sheet' to see a preview.</li>
-            <li>**Arrange & Download:** Drag the photos on the A4 sheet to arrange them. Finally, download the sheet as a JPEG or PDF.</li>
-        </ol>
-    </motion.div>
+  <motion.div
+    initial={{ opacity: 0, y: 10 }}
+    animate={{ opacity: 1, y: 0 }}
+    className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-6"
+  >
+    <h3 className="text-lg font-semibold text-blue-800 mb-3 flex items-center">
+      <HelpCircle className="mr-2 h-5 w-5" />
+      How to Use Passport Photo Maker
+    </h3>
+    <ol className="list-decimal list-inside space-y-2 text-gray-700">
+      <li>**Upload Photos:** Click 'Add Photo' to upload one or more images.</li>
+      <li>**Crop Each Photo:** Click the 'Crop' button on each photo to adjust it to the correct passport size aspect ratio.</li>
+      <li>**Set Copies:** Choose how many copies you want for each uploaded photo.</li>
+      <li>**Generate Sheet:** Click 'Generate Photo Sheet' to see a preview.</li>
+      <li>**Arrange & Download:** Drag the photos on the A4 sheet to arrange them. Finally, download the sheet as a JPEG or PDF.</li>
+    </ol>
+  </motion.div>
 );
 
 const PassportPhotoMakerPage = () => {
@@ -44,7 +44,7 @@ const PassportPhotoMakerPage = () => {
   const [sheetDataUrl, setSheetDataUrl] = useState(null);
   const [numberOfCopies, setNumberOfCopies] = useState(8);
   const [imagePositions, setImagePositions] = useState({});
-  
+
   const [currentCroppingPhoto, setCurrentCroppingPhoto] = useState(null);
 
   const fileInputRef = useRef(null);
@@ -68,35 +68,35 @@ const PassportPhotoMakerPage = () => {
     const imageFiles = files.filter(file => file.type.startsWith('image/'));
 
     if (imageFiles.length === 0 && files.length > 0) {
-        toast({ title: 'Invalid File Type', description: 'Please select valid image files (JPEG, PNG).', variant: 'destructive' });
-        return;
+      toast({ title: 'Invalid File Type', description: 'Please select valid image files (JPEG, PNG).', variant: 'destructive' });
+      return;
     }
 
     imageFiles.forEach(file => {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            const img = new Image();
-            img.onload = () => {
-                const blobUrl = base64ToBlobUrl(event.target.result);
-                const newPhoto = { 
-                    id: uuidv4(), 
-                    source: blobUrl, 
-                    originalBase64: event.target.result,
-                    cropped: null, 
-                    width: img.width, 
-                    height: img.height 
-                };
-                setPhotos(prev => [...prev, newPhoto]);
-                if (!currentCroppingPhoto && imageFiles.indexOf(file) === 0) {
-                    startCropping(newPhoto);
-                }
-            };
-            img.src = event.target.result;
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          const blobUrl = base64ToBlobUrl(event.target.result);
+          const newPhoto = {
+            id: uuidv4(),
+            source: blobUrl,
+            originalBase64: event.target.result,
+            cropped: null,
+            width: img.width,
+            height: img.height
+          };
+          setPhotos(prev => [...prev, newPhoto]);
+          if (!currentCroppingPhoto && imageFiles.indexOf(file) === 0) {
+            startCropping(newPhoto);
+          }
         };
-        reader.readAsDataURL(file);
+        img.src = event.target.result;
+      };
+      reader.readAsDataURL(file);
     });
-    
-    if(fileInputRef.current) fileInputRef.current.value = "";
+
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const startCropping = (photo) => {
@@ -120,7 +120,7 @@ const PassportPhotoMakerPage = () => {
       toast({ title: 'No Cropped Photos', description: 'Please upload and crop at least one photo.', variant: 'destructive' });
       return;
     }
-    
+
     const dpi = 300;
     const a4WidthPx = Math.floor(8.27 * dpi);
     const a4HeightPx = Math.floor(11.69 * dpi);
@@ -138,16 +138,16 @@ const PassportPhotoMakerPage = () => {
     let photoIndex = 0;
 
     for (const photo of croppedPhotos) {
-        for (let i = 0; i < numberOfCopies; i++) {
-            const uniqueId = `${photo.id}-${i}`;
-            const r = Math.floor(photoIndex / cols);
-            const c = photoIndex % cols;
-            if (r >= rows) break;
-            const x = horizontalMargin + c * (photoWidthPx + margin);
-            const y = verticalMargin + r * (photoHeightPx + margin);
-            positions[uniqueId] = { x, y, src: photo.cropped, width: photoWidthPx, height: photoHeightPx };
-            photoIndex++;
-        }
+      for (let i = 0; i < numberOfCopies; i++) {
+        const uniqueId = `${photo.id}-${i}`;
+        const r = Math.floor(photoIndex / cols);
+        const c = photoIndex % cols;
+        if (r >= rows) break;
+        const x = horizontalMargin + c * (photoWidthPx + margin);
+        const y = verticalMargin + r * (photoHeightPx + margin);
+        positions[uniqueId] = { x, y, src: photo.cropped, width: photoWidthPx, height: photoHeightPx };
+        photoIndex++;
+      }
     }
     setImagePositions(positions);
     setResultState('generating');
@@ -157,19 +157,19 @@ const PassportPhotoMakerPage = () => {
     if (!sheetDataUrl) return;
     setIsProcessing(true);
     try {
-        if (format === 'jpeg') {
-            saveAs(sheetDataUrl, 'passport-photos.jpeg');
-        } else if (format === 'pdf') {
-            const pdfDoc = await PDFDocument.create();
-            const jpegImage = await pdfDoc.embedJpg(sheetDataUrl);
-            const page = pdfDoc.addPage([595.28, 841.89]); // A4 size in points
-            page.drawImage(jpegImage, { x: 0, y: 0, width: page.getWidth(), height: page.getHeight() });
-            const pdfBytes = await pdfDoc.save();
-            const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-            saveAs(blob, 'passport-photos.pdf');
-        }
+      if (format === 'jpeg') {
+        saveAs(sheetDataUrl, 'passport-photos.jpeg');
+      } else if (format === 'pdf') {
+        const pdfDoc = await PDFDocument.create();
+        const jpegImage = await pdfDoc.embedJpg(sheetDataUrl);
+        const page = pdfDoc.addPage([595.28, 841.89]); // A4 size in points
+        page.drawImage(jpegImage, { x: 0, y: 0, width: page.getWidth(), height: page.getHeight() });
+        const pdfBytes = await pdfDoc.save();
+        const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+        saveAs(blob, 'passport-photos.pdf');
+      }
     } catch (error) {
-       toast({ title: 'Download Failed', description: `Could not prepare the ${format.toUpperCase()} file.`, variant: 'destructive' });
+      toast({ title: 'Download Failed', description: `Could not prepare the ${format.toUpperCase()} file.`, variant: 'destructive' });
     } finally {
       setIsProcessing(false);
     }
@@ -244,19 +244,11 @@ const PassportPhotoMakerPage = () => {
         </main>
       </div>
 
-      <CropDialog
-        isOpen={!!currentCroppingPhoto}
-        onClose={() => setCurrentCroppingPhoto(null)}
-        photo={currentCroppingPhoto}
-        crop={crop}
-        setCrop={setCrop}
-        zoom={zoom}
-        setZoom={setZoom}
-        rotation={rotation}
-        setRotation={setRotation}
-        aspect={aspect}
-        onCropComplete={setCroppedPixels}
-        onFinishCropping={handleFinishCropping}
+      <ProfessionalImageCropper
+        imageSrc={currentCroppingPhoto?.source}
+        onCancel={() => setCurrentCroppingPhoto(null)}
+        onSave={handleCropComplete}
+        initialAspectRatio={aspect}
       />
     </DndProvider>
   );
