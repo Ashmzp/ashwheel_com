@@ -16,64 +16,56 @@ const SimpleCropDialog = ({ isOpen, onClose, imageUrl, onCropComplete, aspectRat
 
         setIsLoading(true);
         
-        // Set a timeout to prevent infinite loading
-        const loadingTimeout = setTimeout(() => {
-            console.error('Image loading timeout');
-            setIsLoading(false);
-        }, 10000); // 10 second timeout
-
         // Clear any existing canvas
         if (fabricCanvasRef.current) {
             fabricCanvasRef.current.dispose();
+            fabricCanvasRef.current = null;
         }
 
-        // Calculate responsive canvas size - fit to screen better
-        const maxWidth = Math.min(window.innerWidth * 0.85, 950);
-        const maxHeight = Math.min(window.innerHeight * 0.6, 600);
+        // Calculate responsive canvas size
+        const maxWidth = Math.min(window.innerWidth * 0.8, 800);
+        const maxHeight = Math.min(window.innerHeight * 0.5, 500);
 
         const canvas = new fabric.Canvas(canvasRef.current, {
             width: maxWidth,
             height: maxHeight,
-            backgroundColor: '#f5f5f5',
+            backgroundColor: '#f8f9fa',
         });
 
         fabricCanvasRef.current = canvas;
 
-        // Simple direct image loading
+        // Load image using native Image object first, then create fabric image
         const img = new Image();
         img.onload = () => {
-            const fabricImg = new fabric.Image(img);
+            try {
+                const fabricImg = new fabric.Image(img);
+                
+                const scale = Math.min(
+                    (canvas.width * 0.8) / fabricImg.width,
+                    (canvas.height * 0.8) / fabricImg.height
+                );
 
-            const scale = Math.min(
-                (canvas.width * 0.7) / fabricImg.width,
-                (canvas.height * 0.7) / fabricImg.height
-            );
+                fabricImg.set({
+                    left: canvas.width / 2,
+                    top: canvas.height / 2,
+                    originX: 'center',
+                    originY: 'center',
+                    scaleX: scale,
+                    scaleY: scale,
+                    selectable: true,
+                    hasControls: true,
+                    hasBorders: true,
+                    borderColor: '#3b82f6',
+                    cornerColor: '#3b82f6',
+                    cornerSize: 8,
+                    transparentCorners: false,
+                });
 
-            fabricImg.set({
-                left: canvas.width / 2,
-                top: canvas.height / 2,
-                originX: 'center',
-                originY: 'center',
-                scaleX: scale,
-                scaleY: scale,
-                selectable: true,
-                hasControls: true,
-                hasBorders: true,
-                borderColor: '#3b82f6',
-                cornerColor: '#3b82f6',
-                cornerSize: 8,
-                transparentCorners: false,
-            });
+                canvas.add(fabricImg);
+                imageObjectRef.current = fabricImg;
 
-            canvas.add(fabricImg);
-            imageObjectRef.current = fabricImg;
-            
-            // Ensure image is visible and canvas is rendered
-            canvas.setActiveObject(fabricImg);
-            canvas.renderAll();
-
-            const cropWidth = fabricImg.getScaledWidth() * 0.8;
-            const cropHeight = aspectRatio ? cropWidth / aspectRatio : fabricImg.getScaledHeight() * 0.8;
+                const cropWidth = fabricImg.getScaledWidth() * 0.7;
+                const cropHeight = aspectRatio ? cropWidth / aspectRatio : fabricImg.getScaledHeight() * 0.7;
 
                 const cropRect = new fabric.Rect({
                     left: canvas.width / 2,
@@ -82,15 +74,15 @@ const SimpleCropDialog = ({ isOpen, onClose, imageUrl, onCropComplete, aspectRat
                     height: cropHeight,
                     fill: 'rgba(59, 130, 246, 0.1)',
                     stroke: '#3b82f6',
-                    strokeWidth: 3,
-                    strokeDashArray: [10, 5],
+                    strokeWidth: 2,
+                    strokeDashArray: [8, 4],
                     originX: 'center',
                     originY: 'center',
                     selectable: true,
                     hasControls: true,
                     lockRotation: true,
                     cornerColor: '#3b82f6',
-                    cornerSize: 12,
+                    cornerSize: 10,
                     transparentCorners: false,
                     borderColor: '#3b82f6',
                 });
@@ -104,28 +96,27 @@ const SimpleCropDialog = ({ isOpen, onClose, imageUrl, onCropComplete, aspectRat
                     });
                 }
 
-            canvas.add(cropRect);
-            cropRectRef.current = cropRect;
-            
-            // Final setup and render
-            canvas.setActiveObject(fabricImg);
-            canvas.renderAll();
-            
-            // Clear timeout and set loading to false
-            clearTimeout(loadingTimeout);
-            setIsLoading(false);
+                canvas.add(cropRect);
+                cropRectRef.current = cropRect;
+                
+                canvas.setActiveObject(fabricImg);
+                canvas.renderAll();
+                setIsLoading(false);
+            } catch (error) {
+                console.error('Error creating fabric image:', error);
+                setIsLoading(false);
+            }
         };
         
         img.onerror = () => {
-            clearTimeout(loadingTimeout);
+            console.error('Error loading image');
             setIsLoading(false);
         };
         
+        img.crossOrigin = 'anonymous';
         img.src = imageUrl;
 
-
         return () => {
-            clearTimeout(loadingTimeout);
             if (fabricCanvasRef.current) {
                 fabricCanvasRef.current.dispose();
                 fabricCanvasRef.current = null;
@@ -184,14 +175,14 @@ const SimpleCropDialog = ({ isOpen, onClose, imageUrl, onCropComplete, aspectRat
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose} modal={true}>
-            <DialogContent className="crop-dialog-content flex flex-col p-3 gap-2 overflow-hidden">
-                <DialogHeader className="flex-shrink-0 pb-2">
+            <DialogContent className="max-w-5xl w-[95vw] max-h-[95vh] flex flex-col p-4 gap-3">
+                <DialogHeader className="flex-shrink-0">
                     <DialogTitle className="text-lg">Professional Crop - Free Drag & Resize</DialogTitle>
                     <DialogDescription>Drag, resize and crop your image</DialogDescription>
                 </DialogHeader>
-                <div className="flex-1 min-h-[450px] max-h-[calc(90vh-200px)] bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg p-3 relative overflow-hidden">
+                <div className="flex-1 bg-gray-50 rounded-lg p-4 relative flex items-center justify-center min-h-[400px]">
                     {isLoading && (
-                        <div className="crop-loading-overlay">
+                        <div className="absolute inset-0 flex items-center justify-center bg-white/80 rounded-lg z-10">
                             <div className="text-center">
                                 <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-3" />
                                 <p className="text-base font-medium text-gray-700">Loading image...</p>
@@ -199,8 +190,8 @@ const SimpleCropDialog = ({ isOpen, onClose, imageUrl, onCropComplete, aspectRat
                             </div>
                         </div>
                     )}
-                    <div className="crop-canvas-container">
-                        <canvas ref={canvasRef} className="border-2 border-gray-300 rounded-lg shadow-lg" />
+                    <div className="flex items-center justify-center">
+                        <canvas ref={canvasRef} className="border border-gray-300 rounded shadow-sm" />
                     </div>
                 </div>
                 <div className="flex-shrink-0 text-center py-1">

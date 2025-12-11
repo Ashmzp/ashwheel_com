@@ -72,3 +72,6 @@ setup-*.sh
 # Supabase local
 supabase/.branches
 supabase/.temp
+node_modules
+node_modules
+node_modules

@@ -1,0 +1,21 @@
+# 1. Copy script to server
+scp supabase-backup-split.sh root@31.97.235.213:/root/
+scp restore-split-backup.sh root@31.97.235.213:/root/
+
+# 2. SSH to server and setup
+ssh root@31.97.235.213
+
+# 3. Make executable
+chmod +x /root/supabase-backup-split.sh
+chmod +x /root/restore-split-backup.sh
+
+# 4. Add to crontab (daily 2 AM)
+crontab -e
+# Add this line:
+0 2 * * * /root/supabase-backup-split.sh
+
+# 5. Test run
+/root/supabase-backup-split.sh
+
+# 6. Check backups
+ls -lh /root/supabase-backups/

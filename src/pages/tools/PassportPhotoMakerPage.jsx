@@ -52,6 +52,17 @@ const PassportPhotoMakerPage = () => {
 
   const aspect = 3.5 / 4.5;
 
+  // Convert base64 to blob URL for react-easy-crop compatibility
+  const base64ToBlobUrl = (base64) => {
+    const arr = base64.split(',');
+    const mime = arr[0].match(/:(.*?);/)[1];
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) u8arr[n] = bstr.charCodeAt(n);
+    return URL.createObjectURL(new Blob([u8arr], { type: mime }));
+  };
+
   const handleImageUpload = (e) => {
     const files = Array.from(e.target.files);
     const imageFiles = files.filter(file => file.type.startsWith('image/'));
@@ -66,7 +77,15 @@ const PassportPhotoMakerPage = () => {
         reader.onload = (event) => {
             const img = new Image();
             img.onload = () => {
-                const newPhoto = { id: uuidv4(), source: event.target.result, cropped: null, width: img.width, height: img.height };
+                const blobUrl = base64ToBlobUrl(event.target.result);
+                const newPhoto = { 
+                    id: uuidv4(), 
+                    source: blobUrl, 
+                    originalBase64: event.target.result,
+                    cropped: null, 
+                    width: img.width, 
+                    height: img.height 
+                };
                 setPhotos(prev => [...prev, newPhoto]);
                 if (!currentCroppingPhoto && imageFiles.indexOf(file) === 0) {
                     startCropping(newPhoto);
@@ -88,6 +107,8 @@ const PassportPhotoMakerPage = () => {
     setPhotos(prevPhotos => prevPhotos.map(p => p.id === currentCroppingPhoto.id ? { ...p, cropped: croppedUrl } : p));
     setCurrentCroppingPhoto(null);
   };
+
+
 
   const removePhoto = (id) => {
     setPhotos(prev => prev.filter(p => p.id !== id));
@@ -223,12 +244,19 @@ const PassportPhotoMakerPage = () => {
         </main>
       </div>
 
-      <SimpleCropDialog
+      <CropDialog
         isOpen={!!currentCroppingPhoto}
         onClose={() => setCurrentCroppingPhoto(null)}
-        imageUrl={currentCroppingPhoto?.source}
-        onCropComplete={handleCropComplete}
-        aspectRatio={aspect}
+        photo={currentCroppingPhoto}
+        crop={crop}
+        setCrop={setCrop}
+        zoom={zoom}
+        setZoom={setZoom}
+        rotation={rotation}
+        setRotation={setRotation}
+        aspect={aspect}
+        onCropComplete={setCroppedPixels}
+        onFinishCropping={handleFinishCropping}
       />
     </DndProvider>
   );
