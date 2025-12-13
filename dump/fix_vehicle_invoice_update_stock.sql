@@ -1,4 +1,4 @@
--- Enhanced trigger to handle UPDATE properly
+-- Enhanced trigger to handle UPDATE and DELETE properly
 CREATE OR REPLACE FUNCTION public.handle_stock_deletion_on_sale()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -44,31 +44,26 @@ BEGIN
         RETURN NEW;
     END IF;
     
-    -- Handle DELETE: restore to stock if setting enabled
+    -- Handle DELETE: always restore to stock (individual item delete)
     IF (TG_OP = 'DELETE') THEN
-        SELECT restore_on_delete INTO restore_setting
-        FROM public.daily_report_settings
-        WHERE user_id = OLD.user_id;
-        
-        IF COALESCE(restore_setting, false) = true THEN
-            IF NOT EXISTS (SELECT 1 FROM public.stock WHERE user_id = OLD.user_id AND chassis_no = OLD.chassis_no) THEN
-                INSERT INTO public.stock (user_id, model_name, chassis_no, engine_no, colour, price, gst, hsn, purchase_date, created_at, category)
-                SELECT
-                    p.user_id,
-                    (item->>'modelName')::text,
-                    (item->>'chassisNo')::text,
-                    (item->>'engineNo')::text,
-                    (item->>'colour')::text,
-                    (item->>'price')::numeric,
-                    (item->>'gst')::text,
-                    (item->>'hsn')::text,
-                    p.invoice_date,
-                    NOW(),
-                    (item->>'category')::text
-                FROM public.purchases p, jsonb_array_elements(p.items) as item
-                WHERE p.user_id = OLD.user_id AND (item->>'chassisNo')::text = OLD.chassis_no
-                LIMIT 1;
-            END IF;
+        -- Restore deleted chassis to stock
+        IF NOT EXISTS (SELECT 1 FROM public.stock WHERE user_id = OLD.user_id AND chassis_no = OLD.chassis_no) THEN
+            INSERT INTO public.stock (user_id, model_name, chassis_no, engine_no, colour, price, gst, hsn, purchase_date, created_at, category)
+            SELECT
+                p.user_id,
+                (item->>'modelName')::text,
+                (item->>'chassisNo')::text,
+                (item->>'engineNo')::text,
+                (item->>'colour')::text,
+                (item->>'price')::numeric,
+                (item->>'gst')::text,
+                (item->>'hsn')::text,
+                p.invoice_date,
+                NOW(),
+                (item->>'category')::text
+            FROM public.purchases p, jsonb_array_elements(p.items) as item
+            WHERE p.user_id = OLD.user_id AND (item->>'chassisNo')::text = OLD.chassis_no
+            LIMIT 1;
         END IF;
         
         RETURN OLD;
