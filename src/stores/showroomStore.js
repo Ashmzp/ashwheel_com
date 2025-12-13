@@ -10,7 +10,12 @@ const createInitialState = (data = {}) => ({
   customer_id: data.customer_id || null,
   customer_name: data.customer_name || '',
   customer_details: data.customer_details || {},
-  items: data.vehicle_invoice_items || [],
+  items: (data.vehicle_invoice_items || []).map(item => ({
+    ...item,
+    price: parseFloat(item.price || 0),
+    discount: parseFloat(item.discount || 0),
+    gst: item.gst || '28',
+  })),
   extra_charges: data.extra_charges || {},
   total_amount: data.total_amount || 0,
   selectedCustomer: data.customers ? {
