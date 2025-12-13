@@ -27,7 +27,8 @@ const JournalEntrySettingsPage = () => {
       const settings = await getJournalEntrySettings(user.id);
       setPriceFields(settings.price_fields || []);
     } catch (error) {
-      toast({ title: 'Error', description: 'Failed to load settings', variant: 'destructive' });
+      console.error('Load settings error:', error);
+      toast({ title: 'Error', description: error.message || 'Failed to load settings', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -42,7 +43,12 @@ const JournalEntrySettingsPage = () => {
       await updateJournalEntrySettings(user.id, { price_fields: priceFields });
       toast({ title: 'Success', description: 'Settings saved successfully' });
     } catch (error) {
-      toast({ title: 'Error', description: 'Failed to save settings', variant: 'destructive' });
+      console.error('Save settings error:', error);
+      toast({ 
+        title: 'Error', 
+        description: error.message || 'Failed to save settings. Please contact admin.', 
+        variant: 'destructive' 
+      });
     } finally {
       setSaving(false);
     }
