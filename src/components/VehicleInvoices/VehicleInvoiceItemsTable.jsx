@@ -20,6 +20,7 @@ const VehicleInvoiceItemsTable = ({ items, setItems, onRemoveItem, taxCalculatio
         let totalGst = 0;
         let priceAfterDiscount = price - discountAmount;
         
+        updatedItem.price = price;
         updatedItem.discount = discountAmount;
 
         if (priceAfterDiscount > 0 && gstRate > 0) {

@@ -56,28 +56,45 @@ const useShowroomStore = create(
 );
 
 export const initializeShowroomStore = (isEditing, data) => {
-  const uniqueKey = isEditing ? `form-edit-vehicle-invoice-${data.id}` : 'form-new-vehicle-invoice';
-  useShowroomStore.persist.setOptions({ name: uniqueKey });
-
-  // Force rehydration from the new storage key
-  useShowroomStore.persist.rehydrate().then(() => {
-    const storedState = useShowroomStore.getState();
-    const needsReset = (isEditing && storedState.id !== data.id) || (!isEditing && storedState.id !== null);
-
-    if (needsReset) {
-      useShowroomStore.getState().resetForm(isEditing ? data : {});
-    }
-  });
+  const uniqueKey = isEditing ? `form-edit-vehicle-invoice-${data?.id}` : 'form-new-vehicle-invoice';
+  const currentKey = useShowroomStore.persist.getOptions().name;
+  
+  // Only clear if switching to different form
+  if (currentKey !== uniqueKey) {
+    // Clear old localStorage keys in background
+    setTimeout(() => {
+      Object.keys(localStorage).forEach(key => {
+        if (key.startsWith('form-edit-vehicle-invoice-') || key === 'form-new-vehicle-invoice') {
+          if (key !== uniqueKey) {
+            localStorage.removeItem(key);
+          }
+        }
+      });
+    }, 0);
+    
+    // Set storage key first
+    useShowroomStore.persist.setOptions({ name: uniqueKey });
+    
+    // Then reset state
+    useShowroomStore.getState().resetForm(isEditing ? data : {});
+  }
 };
 
 export const clearShowroomStore = (isEditing, id) => {
-    const uniqueKey = isEditing ? `form-edit-vehicle-invoice-${id}` : 'form-new-vehicle-invoice';
+    // Reset state first
+    useShowroomStore.getState().resetForm();
+    
+    // Clear all form-related localStorage keys
     try {
-        localStorage.removeItem(uniqueKey);
+        Object.keys(localStorage).forEach(key => {
+            if (key.startsWith('form-edit-vehicle-invoice-') || key === 'form-new-vehicle-invoice' || key === 'form-showroom-placeholder') {
+                localStorage.removeItem(key);
+            }
+        });
     } catch (e) {
         console.error('Error clearing storage:', e);
     }
-    useShowroomStore.getState().resetForm();
+    
     useShowroomStore.persist.setOptions({ name: 'form-showroom-placeholder' });
 };
 

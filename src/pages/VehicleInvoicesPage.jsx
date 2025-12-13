@@ -127,7 +127,8 @@ const VehicleInvoicesPage = () => {
       }
     },
     enabled: !!searchDateRange.start && !!searchDateRange.end && !!user,
-    placeholderData: (previousData) => previousData,
+    refetchOnWindowFocus: false,
+    staleTime: 30000,
     ...DEFAULT_QUERY_CONFIG,
   });
 
@@ -189,6 +190,13 @@ const VehicleInvoicesPage = () => {
       }
       fetchAndInit();
     }
+    
+    // Cleanup on unmount only
+    return () => {
+      if (!showForm) {
+        clearShowroomStore(isEditing, editingId);
+      }
+    };
   }, [showForm, isEditing, editingId, toast, closeForm, user.id]);
 
   const handlePrintChallan = useReactToPrint({
@@ -252,7 +260,8 @@ const VehicleInvoicesPage = () => {
 
   const saveInvoiceMutation = useMutation({
     mutationFn: saveVehicleInvoiceToDb,
-    onSuccess: async () => {
+    onSuccess: () => {
+      // Invalidate instead of refetch for faster UX
       queryClient.invalidateQueries({ queryKey: ['vehicleInvoices'] });
       queryClient.invalidateQueries({ queryKey: ['stock'] });
       queryClient.invalidateQueries({ queryKey: ['stockCount'] });
@@ -315,6 +324,7 @@ const VehicleInvoicesPage = () => {
         title: "Invoice Deleted",
         description: "Invoice deleted and items have been restored to stock.",
       });
+      // Invalidate instead of refetch for faster UX
       queryClient.invalidateQueries({ queryKey: ['vehicleInvoices'] });
       queryClient.invalidateQueries({ queryKey: ['stock'] });
       queryClient.invalidateQueries({ queryKey: ['stockCount'] });
