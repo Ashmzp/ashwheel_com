@@ -7,7 +7,7 @@ import { getLedgerSummary } from '@/utils/db/journalEntries';
 import { useToast } from '@/components/ui/use-toast';
 import { exportToExcel } from '@/utils/excel';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const LedgerSummary = () => {
@@ -16,22 +16,26 @@ const LedgerSummary = () => {
   const [customerType, setCustomerType] = useState('all');
   const { toast } = useToast();
 
-  useEffect(() => {
+  const fetchAllData = async () => {
     setIsLoading(true);
-    getLedgerSummary(customerType)
-      .then(data => {
-        setSummaryData(data);
-        setIsLoading(false);
-      })
-      .catch(error => {
-        toast({
-          variant: 'destructive',
-          title: 'Error',
-          description: `Failed to fetch ledger summary: ${error.message}`,
-        });
-        setIsLoading(false);
+    try {
+      const data = await getLedgerSummary(customerType);
+      setSummaryData(data || []);
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: `Failed to fetch ledger summary: ${error.message}`,
       });
-  }, [customerType, toast]);
+      setSummaryData([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAllData();
+  }, [customerType]);
 
   const { totalPayable, totalReceivable, grandTotal } = useMemo(() => {
     const totals = summaryData.reduce(
@@ -46,48 +50,109 @@ const LedgerSummary = () => {
     return totals;
   }, [summaryData]);
 
-  const handleExportExcel = () => {
-    if (summaryData.length === 0) {
-      toast({ variant: 'destructive', title: 'Export Failed', description: 'No data to export.' });
-      return;
+  const handleExportExcel = async () => {
+    try {
+      setIsLoading(true);
+      const allData = await getLedgerSummary(customerType);
+      
+      if (!allData || allData.length === 0) {
+        toast({ variant: 'destructive', title: 'Export Failed', description: 'No data to export.' });
+        return;
+      }
+
+      const totals = allData.reduce(
+        (acc, item) => {
+          acc.totalPayable += item.payable_amount;
+          acc.totalReceivable += item.receivable_amount;
+          return acc;
+        },
+        { totalPayable: 0, totalReceivable: 0 }
+      );
+      const grandTotalCalc = totals.totalReceivable - totals.totalPayable;
+
+      const dataToExport = allData.map(item => ({
+        'Customer Name': item.customer_name,
+        'Receivable (Dr)': item.receivable_amount.toFixed(2),
+        'Payable (Cr)': item.payable_amount.toFixed(2),
+        'Net Balance': `${Math.abs(item.net_balance).toFixed(2)} ${item.net_balance >= 0 ? 'Dr' : 'Cr'}`,
+      }));
+      
+      dataToExport.push({
+        'Customer Name': 'GRAND TOTAL',
+        'Receivable (Dr)': totals.totalReceivable.toFixed(2),
+        'Payable (Cr)': totals.totalPayable.toFixed(2),
+        'Net Balance': `${Math.abs(grandTotalCalc).toFixed(2)} ${grandTotalCalc >= 0 ? 'Dr' : 'Cr'}`,
+      });
+      
+      exportToExcel(dataToExport, `Ledger_Summary_${customerType}`);
+      toast({ title: 'Success', description: `Exported ${allData.length} records` });
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Export Failed', description: error.message });
+    } finally {
+      setIsLoading(false);
     }
-    const dataToExport = summaryData.map(item => ({
-      'Customer Name': item.customer_name,
-      'Receivable Amount': item.receivable_amount,
-      'Payable Amount': item.payable_amount,
-      'Net Balance': item.net_balance,
-    }));
-    dataToExport.push({
-      'Customer Name': 'GRAND TOTAL',
-      'Receivable Amount': totalReceivable,
-      'Payable Amount': totalPayable,
-      'Net Balance': grandTotal,
-    });
-    exportToExcel(dataToExport, `Ledger_Summary_${customerType}`);
   };
 
-  const handleExportPdf = () => {
-    if (summaryData.length === 0) {
-      toast({ variant: 'destructive', title: 'Export Failed', description: 'No data to export.' });
-      return;
-    }
-    const doc = new jsPDF();
-    doc.text(`Ledger Summary - ${customerType.charAt(0).toUpperCase() + customerType.slice(1)} Customers`, 14, 16);
-    doc.autoTable({
-      head: [['Customer Name', 'Receivable (Dr)', 'Payable (Cr)', 'Net Balance']],
-      body: summaryData.map(item => [
+  const handleExportPdf = async () => {
+    try {
+      setIsLoading(true);
+      const allData = await getLedgerSummary(customerType);
+      
+      if (!allData || allData.length === 0) {
+        toast({ variant: 'destructive', title: 'Export Failed', description: 'No data to export.' });
+        return;
+      }
+
+      const totals = allData.reduce(
+        (acc, item) => {
+          acc.totalPayable += item.payable_amount;
+          acc.totalReceivable += item.receivable_amount;
+          return acc;
+        },
+        { totalPayable: 0, totalReceivable: 0 }
+      );
+      const grandTotalCalc = totals.totalReceivable - totals.totalPayable;
+
+      const doc = new jsPDF();
+      doc.setFontSize(16);
+      doc.text(`Ledger Summary - ${customerType.charAt(0).toUpperCase() + customerType.slice(1)} Customers`, 14, 16);
+      
+      const tableData = allData.map(item => [
         item.customer_name,
         item.receivable_amount.toFixed(2),
         item.payable_amount.toFixed(2),
         `${Math.abs(item.net_balance).toFixed(2)} ${item.net_balance >= 0 ? 'Dr' : 'Cr'}`,
-      ]),
-      foot: [
-        ['GRAND TOTAL', totalReceivable.toFixed(2), totalPayable.toFixed(2), `${Math.abs(grandTotal).toFixed(2)} ${grandTotal >= 0 ? 'Dr' : 'Cr'}`]
-      ],
-      startY: 20,
-      showFoot: 'lastPage',
-    });
-    doc.save(`Ledger_Summary_${customerType}.pdf`);
+      ]);
+      
+      tableData.push([
+        'GRAND TOTAL',
+        totals.totalReceivable.toFixed(2),
+        totals.totalPayable.toFixed(2),
+        `${Math.abs(grandTotalCalc).toFixed(2)} ${grandTotalCalc >= 0 ? 'Dr' : 'Cr'}`
+      ]);
+      
+      autoTable(doc, {
+        head: [['Customer Name', 'Receivable (Dr)', 'Payable (Cr)', 'Net Balance']],
+        body: tableData,
+        startY: 25,
+        theme: 'grid',
+        headStyles: { fillColor: [66, 139, 202] },
+        didParseCell: function(data) {
+          if (data.row.index === tableData.length - 1) {
+            data.cell.styles.fontStyle = 'bold';
+            data.cell.styles.fillColor = [240, 240, 240];
+          }
+        }
+      });
+      
+      doc.save(`Ledger_Summary_${customerType}.pdf`);
+      toast({ title: 'Success', description: 'PDF downloaded successfully' });
+    } catch (error) {
+      console.error('PDF Export Error:', error);
+      toast({ variant: 'destructive', title: 'PDF Export Failed', description: error.message });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (

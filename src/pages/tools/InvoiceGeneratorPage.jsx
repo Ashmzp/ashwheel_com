@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Trash2, PlusCircle, ArrowLeft, Upload, Download, FileText, Banknote, Landmark, Wallet, Link2, CircleDollarSign, Info } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { motion } from 'framer-motion';
-import { useReactToPrint } from 'react-to-print';
+import html2pdf from 'html2pdf.js';
 import { Packer } from 'docx';
 import { saveAs } from 'file-saver';
 import { generateDocx } from '@/utils/docxGenerator';
@@ -75,18 +75,28 @@ const InvoiceGeneratorPage = () => {
         }
     }, []);
 
-    const handlePrint = useReactToPrint({
-        content: () => invoicePrintRef.current,
-        documentTitle: `Invoice-${invoiceNumber}`,
-        onAfterPrint: () => {
+    const handleDownloadPDF = async () => {
+        const element = invoicePrintRef.current;
+        const opt = {
+            margin: 10,
+            filename: `Invoice-${invoiceNumber}.pdf`,
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { scale: 2, useCORS: true },
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        };
+        
+        try {
+            await html2pdf().set(opt).from(element).save();
             const num = parseInt((invoiceNumber.match(/\d+$/) || ['0'])[0]) + 1;
             const prefix = invoiceNumber.replace(/\d+$/, '');
             const nextInv = `${prefix || 'INV-'}${String(num).padStart(3, '0')}`;
             setInvoiceNumber(nextInv);
             localStorage.setItem('invoiceNumber', nextInv);
-            toast({ title: 'Invoice Printed!', description: 'Next invoice number has been updated.' });
-        },
-    });
+            toast({ title: 'PDF Downloaded!', description: 'Next invoice number has been updated.' });
+        } catch (error) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to generate PDF.' });
+        }
+    };
 
     const handleDownloadDocx = async () => {
          const doc = generateDocx({
@@ -166,8 +176,8 @@ const InvoiceGeneratorPage = () => {
                     </Button>
                     <h1 className="text-2xl font-bold">Invoice Generator</h1>
                     <div className="flex gap-2">
-                        <Button variant="outline" onClick={handleDownloadDocx}><FileText className="mr-2 h-4 w-4" /> Download DOCX</Button>
-                        <Button onClick={handlePrint}><Download className="mr-2 h-4 w-4" /> Download PDF</Button>
+                        <Button variant="outline" onClick={handleDownloadDocx}><FileText className="mr-2 h-4 w-4" /> Download Word</Button>
+                        <Button onClick={handleDownloadPDF}><Download className="mr-2 h-4 w-4" /> Download PDF</Button>
                     </div>
                 </header>
 
@@ -298,68 +308,68 @@ const InvoiceGeneratorPage = () => {
 
                     {/* Preview Section */}
                     <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="lg:col-span-2">
-                        <div className="bg-white rounded-lg shadow-lg h-full sticky top-8">
-                            <div ref={invoicePrintRef} className="p-10 text-gray-800 font-sans text-[10pt] leading-normal" style={{width: '210mm', minHeight: '297mm', boxSizing: 'border-box'}}>
-                                <header className="flex justify-between items-start pb-6 mb-8 border-b-2 border-gray-800">
-                                    {logo ? <img src={logo} alt="Company Logo" style={{ maxHeight: '60px', maxWidth: '180px' }} /> : <div className="h-[60px] w-[180px] bg-gray-200 rounded flex items-center justify-center text-gray-500 text-sm">Your Logo Here</div>}
-                                    <div className="text-right">
-                                        <h1 className="text-4xl font-bold uppercase text-gray-900">Invoice</h1>
-                                        <p className="text-gray-600 mt-1"># {invoiceNumber}</p>
+                        <div className="bg-white rounded-lg shadow-lg overflow-auto max-h-[calc(100vh-120px)] sticky top-8">
+                            <div ref={invoicePrintRef} className="p-6 sm:p-8 md:p-10 text-gray-800 font-sans text-[9pt] sm:text-[10pt] leading-normal">
+                                <header className="flex flex-col sm:flex-row justify-between items-start gap-4 pb-4 sm:pb-6 mb-6 sm:mb-8 border-b-2 border-gray-800">
+                                    {logo ? <img src={logo} alt="Company Logo" className="max-h-[50px] sm:max-h-[60px] max-w-[150px] sm:max-w-[180px]" /> : <div className="h-[50px] sm:h-[60px] w-[150px] sm:w-[180px] bg-gray-200 rounded flex items-center justify-center text-gray-500 text-xs sm:text-sm">Your Logo Here</div>}
+                                    <div className="text-left sm:text-right">
+                                        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold uppercase text-gray-900">Invoice</h1>
+                                        <p className="text-gray-600 mt-1 text-sm sm:text-base"># {invoiceNumber}</p>
                                     </div>
                                 </header>
-                                <section className="grid grid-cols-2 gap-8 mb-10">
+                                <section className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-8 mb-6 sm:mb-10">
                                     <div>
-                                        <p className="font-bold text-gray-600 mb-1">FROM:</p>
-                                        <pre className="font-sans whitespace-pre-wrap">{billFrom}</pre>
+                                        <p className="font-bold text-gray-600 mb-1 text-xs sm:text-sm">FROM:</p>
+                                        <pre className="font-sans whitespace-pre-wrap text-xs sm:text-sm">{billFrom}</pre>
                                     </div>
-                                    <div className="text-right">
-                                        <p className="font-bold text-gray-600 mb-1">TO:</p>
-                                        <pre className="font-sans whitespace-pre-wrap">{billTo}</pre>
+                                    <div className="sm:text-right">
+                                        <p className="font-bold text-gray-600 mb-1 text-xs sm:text-sm">TO:</p>
+                                        <pre className="font-sans whitespace-pre-wrap text-xs sm:text-sm">{billTo}</pre>
                                     </div>
                                 </section>
-                                <section className="grid grid-cols-3 gap-8 text-right mb-12">
-                                    <div><p className="font-bold text-gray-600">Date:</p><p>{date}</p></div>
-                                    <div><p className="font-bold text-gray-600">Due Date:</p><p>{dueDate || 'N/A'}</p></div>
-                                    <div><p className="font-bold text-gray-600">Total Amount:</p><p className="text-xl font-bold text-gray-900">{currency}{total.toFixed(2)}</p></div>
+                                <section className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-8 text-left sm:text-right mb-6 sm:mb-12">
+                                    <div><p className="font-bold text-gray-600 text-xs sm:text-sm">Date:</p><p className="text-xs sm:text-sm">{date}</p></div>
+                                    <div><p className="font-bold text-gray-600 text-xs sm:text-sm">Due Date:</p><p className="text-xs sm:text-sm">{dueDate || 'N/A'}</p></div>
+                                    <div><p className="font-bold text-gray-600 text-xs sm:text-sm">Total Amount:</p><p className="text-lg sm:text-xl font-bold text-gray-900">{currency}{total.toFixed(2)}</p></div>
                                 </section>
-                                <section>
-                                    <table className="w-full text-left">
+                                <section className="overflow-x-auto">
+                                    <table className="w-full text-left text-xs sm:text-sm">
                                         <thead className="bg-gray-800 text-white">
                                             <tr>
-                                                <th className="p-3 font-semibold uppercase tracking-wider" style={{width: '50%'}}>Item</th>
-                                                <th className="p-3 w-20 text-right font-semibold uppercase tracking-wider">Qty</th>
-                                                <th className="p-3 w-28 text-right font-semibold uppercase tracking-wider">Rate</th>
-                                                <th className="p-3 w-32 text-right font-semibold uppercase tracking-wider">Amount</th>
+                                                <th className="p-2 sm:p-3 font-semibold uppercase tracking-wider">Item</th>
+                                                <th className="p-2 sm:p-3 text-right font-semibold uppercase tracking-wider">Qty</th>
+                                                <th className="p-2 sm:p-3 text-right font-semibold uppercase tracking-wider">Rate</th>
+                                                <th className="p-2 sm:p-3 text-right font-semibold uppercase tracking-wider">Amount</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             {items.map((item, i) => (
                                                 <tr key={i} className="border-b border-gray-200">
-                                                    <td className="p-3 align-top"><p className="font-semibold">{item.description}</p></td>
-                                                    <td className="p-3 text-right align-top">{item.quantity}</td>
-                                                    <td className="p-3 text-right align-top">{currency}{item.rate.toFixed(2)}</td>
-                                                    <td className="p-3 text-right align-top">{currency}{calculateItemAmount(item).toFixed(2)}</td>
+                                                    <td className="p-2 sm:p-3 align-top"><p className="font-semibold">{item.description}</p></td>
+                                                    <td className="p-2 sm:p-3 text-right align-top">{item.quantity}</td>
+                                                    <td className="p-2 sm:p-3 text-right align-top">{currency}{item.rate.toFixed(2)}</td>
+                                                    <td className="p-2 sm:p-3 text-right align-top">{currency}{calculateItemAmount(item).toFixed(2)}</td>
                                                 </tr>
                                             ))}
                                         </tbody>
                                     </table>
                                 </section>
-                                <section className="flex justify-end mt-6">
-                                    <div className="w-80 space-y-2">
+                                <section className="flex justify-end mt-4 sm:mt-6">
+                                    <div className="w-full sm:w-80 space-y-1 sm:space-y-2 text-xs sm:text-sm">
                                         <div className="flex justify-between"><span className="text-gray-600">Subtotal:</span><span>{currency}{subtotal.toFixed(2)}</span></div>
                                         {totalItemDiscount > 0 && <div className="flex justify-between"><span className="text-gray-600">Item Discounts:</span><span className="text-destructive">-{currency}{totalItemDiscount.toFixed(2)}</span></div>}
                                         {overallDiscountAmount > 0 && <div className="flex justify-between"><span className="text-gray-600">Discount ({overallDiscount}{overallDiscountType}):</span><span className="text-destructive">-{currency}{overallDiscountAmount.toFixed(2)}</span></div>}
                                         {tax > 0 && <div className="flex justify-between"><span className="text-gray-600">Tax ({tax}%):</span><span>+{currency}{taxAmount.toFixed(2)}</span></div>}
                                         {shipping > 0 && <div className="flex justify-between"><span className="text-gray-600">Shipping:</span><span>+{currency}{shipping.toFixed(2)}</span></div>}
-                                        <div className="flex justify-between font-bold text-lg border-t-2 border-gray-800 pt-2 mt-2"><span className="">Total Due:</span><span className="text-gray-900">{currency}{total.toFixed(2)}</span></div>
+                                        <div className="flex justify-between font-bold text-base sm:text-lg border-t-2 border-gray-800 pt-2 mt-2"><span>Total Due:</span><span className="text-gray-900">{currency}{total.toFixed(2)}</span></div>
                                     </div>
                                 </section>
-                                <footer className="absolute bottom-10 left-10 right-10 mt-16 text-gray-600">
-                                    <div className="grid grid-cols-2 gap-10">
+                                <footer className="mt-8 sm:mt-16 text-gray-600 text-xs sm:text-sm">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-10">
                                         {notes && <div><h3 className="font-bold mb-1 text-gray-800">Notes</h3><pre className="font-sans whitespace-pre-wrap">{notes}</pre></div>}
                                         {terms && <div><h3 className="font-bold mb-1 text-gray-800">Terms</h3><pre className="font-sans whitespace-pre-wrap">{terms}</pre></div>}
                                     </div>
-                                    {paymentDetails && <div className="mt-6 pt-4 border-t border-gray-200 text-center"><h3 className="font-bold mb-1 text-gray-800">Payment Details</h3><pre className="font-sans whitespace-pre-wrap">{paymentDetails}</pre></div>}
+                                    {paymentDetails && <div className="mt-4 sm:mt-6 pt-4 border-t border-gray-200 text-center"><h3 className="font-bold mb-1 text-gray-800">Payment Details</h3><pre className="font-sans whitespace-pre-wrap">{paymentDetails}</pre></div>}
                                 </footer>
                             </div>
                         </div>

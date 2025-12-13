@@ -95,26 +95,47 @@ export const saveVehicleInvoice = async (invoiceData) => {
         const userId = await getCurrentUserId();
         const isUpdating = !!invoiceData.id;
 
-        let finalInvoiceNo = invoiceData.invoice_no;
-        if (!isUpdating || !finalInvoiceNo) {
-            const isRegistered = invoiceData.selectedCustomer?.gst && invoiceData.selectedCustomer.gst.trim() !== '';
-            const invoiceType = isRegistered ? 'registered' : 'non_registered';
-            const { data: generatedNo, error: genError } = await supabase.rpc('generate_and_increment_invoice_no', {
-                p_user_id: userId,
-                p_invoice_type: invoiceType,
-                p_invoice_date: invoiceData.invoice_date
-            });
-            if (genError) throw new Error(`Failed to generate invoice number: ${genError.message}`);
-            finalInvoiceNo = generatedNo;
+        // For updates, use old method
+        if (isUpdating) {
+            return await saveVehicleInvoiceOld(invoiceData, userId);
         }
 
+        // For new invoices, check chassis availability first (user-specific)
+        const chassisNumbers = (invoiceData.items || []).map(item => item.chassis_no).filter(Boolean);
+        if (chassisNumbers.length > 0) {
+            const { data: existingInvoices } = await supabase
+                .from('vehicle_invoice_items')
+                .select('chassis_no, invoice_id, vehicle_invoices!inner(invoice_no, status, user_id)')
+                .in('chassis_no', chassisNumbers)
+                .eq('vehicle_invoices.status', 'active')
+                .eq('vehicle_invoices.user_id', userId);
+            
+            if (existingInvoices && existingInvoices.length > 0) {
+                const duplicates = existingInvoices.map(inv => 
+                    `${inv.chassis_no} (Invoice: ${inv.vehicle_invoices.invoice_no})`
+                ).join(', ');
+                throw new Error(`Chassis already invoiced: ${duplicates}`);
+            }
+        }
+
+        // Generate invoice number
+        const isRegistered = invoiceData.selectedCustomer?.gst && invoiceData.selectedCustomer.gst.trim() !== '';
+        const invoiceType = isRegistered ? 'registered' : 'non_registered';
+        const { data: finalInvoiceNo, error: genError } = await supabase.rpc('generate_and_increment_invoice_no', {
+            p_user_id: userId,
+            p_invoice_type: invoiceType,
+            p_invoice_date: invoiceData.invoice_date
+        });
+        if (genError) throw new Error(`Failed to generate invoice number: ${genError.message}`);
+
         const invoicePayload = {
-            id: invoiceData.id || uuidv4(),
+            id: uuidv4(),
             user_id: userId,
             invoice_no: finalInvoiceNo,
             invoice_date: invoiceData.invoice_date,
             customer_id: invoiceData.selectedCustomer?.id,
             customer_name: invoiceData.selectedCustomer?.customer_name,
+            status: 'active',
             customer_details: {
                 ...invoiceData.customer_details,
                 gst: invoiceData.selectedCustomer?.gst,
@@ -128,17 +149,9 @@ export const saveVehicleInvoice = async (invoiceData) => {
             total_amount: invoiceData.total_amount,
         };
 
-        const { data: savedInvoice, error: invoiceError } = await supabase
-            .from('vehicle_invoices')
-            .upsert(invoicePayload)
-            .select()
-            .single();
-
-        if (invoiceError) throw new Error(`Failed to save invoice: ${invoiceError.message}`);
-
-        const itemsToUpsert = (invoiceData.items || []).map(item => ({
-            id: item.id || uuidv4(),
-            invoice_id: savedInvoice.id,
+        const itemsToInsert = (invoiceData.items || []).map(item => ({
+            id: uuidv4(),
+            invoice_id: invoicePayload.id,
             user_id: userId,
             model_name: item.model_name,
             chassis_no: item.chassis_no,
@@ -156,41 +169,32 @@ export const saveVehicleInvoice = async (invoiceData) => {
             igst_amount: item.igst_amount,
             discount: item.discount,
         }));
-        
-        // For updates, determine which items were removed to restore them to stock
-        if (isUpdating) {
-            const { data: oldItems, error: oldItemsError } = await supabase
-                .from('vehicle_invoice_items')
-                .select('*')
-                .eq('invoice_id', savedInvoice.id);
-            
-            if (oldItemsError) {
-                throw new Error(`Failed to fetch old items: ${oldItemsError.message}`);
-            }
-            
-            const newChassisNos = itemsToUpsert.map(i => i.chassis_no);
-            const itemsToDelete = oldItems.filter(oi => !newChassisNos.includes(oi.chassis_no));
-            const chassisToDeleteFromInvoice = itemsToDelete.map(i => i.chassis_no);
 
-            if (chassisToDeleteFromInvoice.length > 0) {
-                // The trigger will handle stock restoration
-                const { error: deleteError } = await supabase
-                    .from('vehicle_invoice_items')
-                    .delete()
-                    .eq('invoice_id', savedInvoice.id)
-                    .in('chassis_no', chassisToDeleteFromInvoice);
-                
-                if (deleteError) throw new Error(`Failed to delete old items: ${deleteError.message}`);
+        // Insert invoice
+        const { data: savedInvoice, error: invoiceError } = await supabase
+            .from('vehicle_invoices')
+            .insert(invoicePayload)
+            .select()
+            .single();
+
+        if (invoiceError) {
+            if (invoiceError.code === '23505') {
+                throw new Error('Chassis already invoiced by another user. Please refresh and try again.');
             }
+            throw new Error(`Failed to save invoice: ${invoiceError.message}`);
         }
-        
-        if (itemsToUpsert.length > 0) {
-            // The trigger will handle stock deletion
-            const { error: upsertError } = await supabase
+
+        // Insert items (trigger will handle stock deletion)
+        if (itemsToInsert.length > 0) {
+            const { error: itemsError } = await supabase
                 .from('vehicle_invoice_items')
-                .upsert(itemsToUpsert);
+                .insert(itemsToInsert);
             
-            if (upsertError) throw new Error(`Failed to save invoice items: ${upsertError.message}`);
+            if (itemsError) {
+                // Rollback invoice if items fail
+                await supabase.from('vehicle_invoices').delete().eq('id', savedInvoice.id);
+                throw new Error(`Failed to save invoice items: ${itemsError.message}`);
+            }
         }
 
         return savedInvoice;
@@ -199,11 +203,93 @@ export const saveVehicleInvoice = async (invoiceData) => {
     }
 };
 
+// Old method for updates
+const saveVehicleInvoiceOld = async (invoiceData, userId) => {
+    const finalInvoiceNo = invoiceData.invoice_no;
+    const invoicePayload = {
+        id: invoiceData.id,
+        user_id: userId,
+        invoice_no: finalInvoiceNo,
+        invoice_date: invoiceData.invoice_date,
+        customer_id: invoiceData.selectedCustomer?.id,
+        customer_name: invoiceData.selectedCustomer?.customer_name,
+        customer_details: {
+            ...invoiceData.customer_details,
+            gst: invoiceData.selectedCustomer?.gst,
+            address: invoiceData.selectedCustomer?.address,
+            mobile1: invoiceData.selectedCustomer?.mobile1,
+            state: invoiceData.selectedCustomer?.state,
+            district: invoiceData.selectedCustomer?.district,
+            pincode: invoiceData.selectedCustomer?.pincode,
+        },
+        extra_charges: invoiceData.extra_charges,
+        total_amount: invoiceData.total_amount,
+    };
+
+    const { data: savedInvoice, error: invoiceError } = await supabase
+        .from('vehicle_invoices')
+        .update(invoicePayload)
+        .eq('id', invoiceData.id)
+        .select()
+        .single();
+
+    if (invoiceError) throw new Error(`Failed to update invoice: ${invoiceError.message}`);
+
+    const itemsToUpsert = (invoiceData.items || []).map(item => ({
+        id: item.id || uuidv4(),
+        invoice_id: savedInvoice.id,
+        user_id: userId,
+        model_name: item.model_name,
+        chassis_no: item.chassis_no,
+        engine_no: item.engine_no,
+        price: item.price,
+        colour: item.colour,
+        gst: item.gst,
+        hsn: item.hsn,
+        taxable_value: item.taxable_value,
+        cgst_rate: item.cgst_rate,
+        sgst_rate: item.sgst_rate,
+        igst_rate: item.igst_rate,
+        cgst_amount: item.cgst_amount,
+        sgst_amount: item.sgst_amount,
+        igst_amount: item.igst_amount,
+        discount: item.discount,
+    }));
+    
+    const { data: oldItems } = await supabase
+        .from('vehicle_invoice_items')
+        .select('*')
+        .eq('invoice_id', savedInvoice.id);
+    
+    const newChassisNos = itemsToUpsert.map(i => i.chassis_no);
+    const itemsToDelete = (oldItems || []).filter(oi => !newChassisNos.includes(oi.chassis_no));
+
+    if (itemsToDelete.length > 0) {
+        await supabase
+            .from('vehicle_invoice_items')
+            .delete()
+            .eq('invoice_id', savedInvoice.id)
+            .in('chassis_no', itemsToDelete.map(i => i.chassis_no));
+    }
+    
+    if (itemsToUpsert.length > 0) {
+        await supabase
+            .from('vehicle_invoice_items')
+            .upsert(itemsToUpsert);
+    }
+
+    return savedInvoice;
+};
+
 export const deleteVehicleInvoice = async (invoiceId) => {
     try {
         await validateSession();
         const { error } = await supabase.from('vehicle_invoices').delete().eq('id', invoiceId);
         if (error) {
+          // Ignore stock duplicate errors (expected when restore_on_delete is enabled)
+          if (error.code === '23505' && error.message?.includes('stock_user_id_chassis_no_key')) {
+            return { error: null };
+          }
           logError(error, 'deleteVehicleInvoice');
           throw new Error(safeErrorMessage(error));
         }

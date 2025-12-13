@@ -107,20 +107,47 @@ const JournalEntryList = () => {
     }
   };
 
-  const handleExport = () => {
-    const dataToExport = entries.map(entry => ({
-      'Date': new Date(entry.entry_date).toLocaleDateString(),
-      'Party Name': entry.party_name,
-      'Particulars': entry.particulars,
-      'Model': entry.model_name,
-      'Chassis No': entry.chassis_no,
-      'Invoice No': entry.invoice_no,
-      'Debit': entry.entry_type === 'Debit' ? entry.price : 0,
-      'Credit': entry.entry_type === 'Credit' ? entry.price : 0,
-      'Narration': entry.narration,
-      'Remark': entry.remark,
-    }));
-    exportToExcel(dataToExport, 'Journal_Entries');
+  const handleExport = async () => {
+    try {
+      setIsLoading(true);
+      const { data } = await getJournalEntries({ 
+        page: 1, 
+        pageSize: 999999,
+        searchTerm: debouncedSearchTerm,
+        startDate: dateRange.from,
+        endDate: dateRange.to,
+      });
+      
+      const dataToExport = data.map(entry => {
+        const breakdown = entry.price_breakdown || {};
+        return {
+          'Date': new Date(entry.entry_date).toLocaleDateString(),
+          'Entry Type': entry.entry_type,
+          'Party Name': entry.party_name,
+          'Chassis No': entry.chassis_no || '',
+          'Model Name': entry.model_name || '',
+          'Invoice No': entry.invoice_no || '',
+          'Particulars': entry.particulars || '',
+          'Vehicle Price': breakdown.vehicle_price || 0,
+          'RTO Price': breakdown.rto_price || 0,
+          'Insurance Price': breakdown.insurance_price || 0,
+          'Accessories Price': breakdown.accessories_price || 0,
+          'Extended Warranty Price': breakdown.warranty_price || 0,
+          'Total Price': entry.price || 0,
+          'Debit': entry.entry_type === 'Debit' ? (entry.price || 0) : 0,
+          'Credit': entry.entry_type === 'Credit' ? (entry.price || 0) : 0,
+          'Narration': entry.narration || '',
+          'Remark': entry.remark || '',
+        };
+      });
+      
+      exportToExcel(dataToExport, 'Journal_Entries');
+      toast({ title: 'Success', description: `Exported ${dataToExport.length} entries` });
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Export Failed', description: error.message });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -210,23 +237,34 @@ const JournalEntryList = () => {
           </Table>
         </div>
         {totalPages > 1 && (
-          <Pagination className="mt-4">
-            <PaginationContent>
-              <PaginationItem>
-                <PaginationPrevious href="#" onClick={() => setPage(Math.max(1, page - 1))} disabled={page === 1} />
-              </PaginationItem>
-              {[...Array(totalPages).keys()].map(p => (
-                <PaginationItem key={p + 1}>
-                  <PaginationLink href="#" onClick={() => setPage(p + 1)} isActive={page === p + 1}>
-                    {p + 1}
+          <div className="flex items-center justify-between mt-4">
+            <div className="text-sm text-muted-foreground">
+              Page {page} of {totalPages} ({totalCount} total entries)
+            </div>
+            <Pagination>
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious 
+                    href="#" 
+                    onClick={(e) => { e.preventDefault(); setPage(Math.max(1, page - 1)); }} 
+                    className={page === 1 ? 'pointer-events-none opacity-50' : ''}
+                  />
+                </PaginationItem>
+                <PaginationItem>
+                  <PaginationLink href="#" isActive>
+                    {page}
                   </PaginationLink>
                 </PaginationItem>
-              ))}
-              <PaginationItem>
-                <PaginationNext href="#" onClick={() => setPage(Math.min(totalPages, page + 1))} disabled={page === totalPages} />
-              </PaginationItem>
-            </PaginationContent>
-          </Pagination>
+                <PaginationItem>
+                  <PaginationNext 
+                    href="#" 
+                    onClick={(e) => { e.preventDefault(); setPage(Math.min(totalPages, page + 1)); }} 
+                    className={page === totalPages ? 'pointer-events-none opacity-50' : ''}
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          </div>
         )}
       </CardContent>
     </Card>

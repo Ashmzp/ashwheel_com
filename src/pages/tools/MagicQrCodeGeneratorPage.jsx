@@ -133,11 +133,26 @@ const MagicQrCodeGeneratorPage = () => {
   
   const downloadQrCode = () => {
       const canvas = document.getElementById('qr-canvas');
-      if (canvas) {
-          canvas.toBlob((blob) => {
-              saveAs(blob, 'magic-qr-profile.png');
-          });
-      }
+      if (!canvas) return;
+      
+      const borderSize = 40;
+      const qrPadding = margin * 4;
+      const newCanvas = document.createElement('canvas');
+      newCanvas.width = canvas.width + qrPadding * 2 + borderSize * 2;
+      newCanvas.height = canvas.height + qrPadding * 2 + borderSize * 2;
+      const ctx = newCanvas.getContext('2d');
+      
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, newCanvas.width, newCanvas.height);
+      
+      ctx.fillStyle = bgColor;
+      ctx.fillRect(borderSize, borderSize, canvas.width + qrPadding * 2, canvas.height + qrPadding * 2);
+      
+      ctx.drawImage(canvas, borderSize + qrPadding, borderSize + qrPadding);
+      
+      newCanvas.toBlob((blob) => {
+          saveAs(blob, 'magic-qr-profile.png');
+      });
   };
 
   const handleLogoUpload = (e) => {
@@ -234,7 +249,7 @@ const MagicQrCodeGeneratorPage = () => {
                 <CardDescription className="text-purple-200">Scan this code to see all your links in one place. Your QR code updates automatically!</CardDescription>
               </CardHeader>
               <CardContent className="flex flex-col items-center gap-6">
-                <div className="p-4 bg-white rounded-xl shadow-lg" style={{ background: bgColor }}>
+                <div className="bg-white rounded-xl shadow-lg" style={{ background: bgColor, padding: `${margin * 4}px` }}>
                   {qrValue ? <QRCodeCanvas id="qr-canvas" value={qrValue} size={256} fgColor={fgColor} bgColor="transparent" level={"H"} imageSettings={logoImage ? { src: logoImage, height: logoHeight, width: logoWidth, excavate: true } : undefined} /> : <div className="w-64 h-64 flex items-center justify-center bg-gray-100 text-gray-500 rounded-lg text-center p-4">Add at least one link to generate your QR code.</div>}
                 </div>
                 <AnimatePresence>

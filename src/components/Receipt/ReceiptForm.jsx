@@ -91,7 +91,11 @@ const ReceiptForm = () => {
   useEffect(() => {
     if (formData.customer_id) {
       getJournalEntriesForCustomer(formData.customer_id)
-        .then(setJournalEntries)
+        .then(entries => {
+          // Filter only Debit entries
+          const debitEntries = entries.filter(e => e.entry_type === 'Debit');
+          setJournalEntries(debitEntries);
+        })
         .catch(console.error);
     } else {
       setJournalEntries([]);
@@ -245,7 +249,11 @@ const ReceiptForm = () => {
               <SelectContent>
                 {journalEntries.map(entry => (
                   <SelectItem key={entry.id} value={entry.id}>
-                    {new Date(entry.entry_date).toLocaleDateString()} - {entry.particulars} (₹{entry.price})
+                    {new Date(entry.entry_date).toLocaleDateString()} - {entry.particulars}
+                    {entry.chassis_no && ` | ${entry.chassis_no}`}
+                    {entry.model_name && ` | ${entry.model_name}`}
+                    {entry.invoice_no && ` | ${entry.invoice_no}`}
+                    {` (₹${entry.price})`}
                   </SelectItem>
                 ))}
               </SelectContent>

@@ -9,6 +9,8 @@ import useReceiptStore from '@/stores/receiptStore';
 import { getReceipts, deleteReceipt } from '@/utils/db/receipts';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useToast } from '@/components/ui/use-toast';
+import { DateRangePicker } from '@/components/ui/daterangepicker';
+import { getCurrentMonthDateRange } from '@/utils/dateUtils';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -38,12 +40,22 @@ const ReceiptList = () => {
   const [receiptToDelete, setReceiptToDelete] = useState(null);
   const debouncedSearchTerm = useDebounce(searchTerm, 500);
   const { toast } = useToast();
-  const pageSize = 10;
+  const pageSize = 100;
+  const [dateRange, setDateRange] = useState(() => {
+    const { start, end } = getCurrentMonthDateRange();
+    return { from: new Date(start), to: new Date(end) };
+  });
 
   const fetchReceipts = async () => {
     setIsLoading(true);
     try {
-      const { data, count } = await getReceipts({ page, pageSize, searchTerm: debouncedSearchTerm });
+      const { data, count } = await getReceipts({ 
+        page, 
+        pageSize, 
+        searchTerm: debouncedSearchTerm,
+        startDate: dateRange.from,
+        endDate: dateRange.to
+      });
       setReceipts(data);
       setTotalCount(count);
     } catch (error) {
@@ -59,7 +71,7 @@ const ReceiptList = () => {
 
   useEffect(() => {
     fetchReceipts();
-  }, [page, debouncedSearchTerm]);
+  }, [page, debouncedSearchTerm, dateRange]);
 
   const totalPages = Math.ceil(totalCount / pageSize);
 
@@ -94,13 +106,14 @@ const ReceiptList = () => {
     <Card>
       <CardHeader>
         <CardTitle>Receipts</CardTitle>
-        <div className="mt-4">
+        <div className="mt-4 flex flex-wrap gap-4">
           <Input
             placeholder="Search by customer name or narration..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="max-w-sm"
           />
+          <DateRangePicker dateRange={dateRange} onDateChange={setDateRange} />
         </div>
       </CardHeader>
       <CardContent>
@@ -166,23 +179,34 @@ const ReceiptList = () => {
           </Table>
         </div>
         {totalPages > 1 && (
-          <Pagination className="mt-4">
-            <PaginationContent>
-              <PaginationItem>
-                <PaginationPrevious href="#" onClick={() => setPage(Math.max(1, page - 1))} disabled={page === 1} />
-              </PaginationItem>
-              {[...Array(totalPages).keys()].map(p => (
-                <PaginationItem key={p + 1}>
-                  <PaginationLink href="#" onClick={() => setPage(p + 1)} isActive={page === p + 1}>
-                    {p + 1}
+          <div className="flex items-center justify-between mt-4">
+            <div className="text-sm text-muted-foreground">
+              Page {page} of {totalPages} ({totalCount} total entries)
+            </div>
+            <Pagination>
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious 
+                    href="#" 
+                    onClick={(e) => { e.preventDefault(); setPage(Math.max(1, page - 1)); }} 
+                    className={page === 1 ? 'pointer-events-none opacity-50' : ''}
+                  />
+                </PaginationItem>
+                <PaginationItem>
+                  <PaginationLink href="#" isActive>
+                    {page}
                   </PaginationLink>
                 </PaginationItem>
-              ))}
-              <PaginationItem>
-                <PaginationNext href="#" onClick={() => setPage(Math.min(totalPages, page + 1))} disabled={page === totalPages} />
-              </PaginationItem>
-            </PaginationContent>
-          </Pagination>
+                <PaginationItem>
+                  <PaginationNext 
+                    href="#" 
+                    onClick={(e) => { e.preventDefault(); setPage(Math.min(totalPages, page + 1)); }} 
+                    className={page === totalPages ? 'pointer-events-none opacity-50' : ''}
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          </div>
         )}
       </CardContent>
     </Card>

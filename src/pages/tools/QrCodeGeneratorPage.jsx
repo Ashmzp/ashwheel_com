@@ -36,24 +36,31 @@ const QrCodeGeneratorPage = () => {
         if (!canvas) return;
 
         const filename = 'ashwheel-qrcode';
+        const borderSize = 40;
+        const qrPadding = margin * 8;
+        const newCanvas = document.createElement('canvas');
+        newCanvas.width = canvas.width + qrPadding * 2 + borderSize * 2;
+        newCanvas.height = canvas.height + qrPadding * 2 + borderSize * 2;
+        const ctx = newCanvas.getContext('2d');
+        
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, newCanvas.width, newCanvas.height);
+        
+        ctx.fillStyle = bgColor;
+        ctx.fillRect(borderSize, borderSize, canvas.width + qrPadding * 2, canvas.height + qrPadding * 2);
+        
+        ctx.drawImage(canvas, borderSize + qrPadding, borderSize + qrPadding);
 
         if (format === 'png') {
-            canvas.toBlob((blob) => {
+            newCanvas.toBlob((blob) => {
                 saveAs(blob, `${filename}.png`);
             });
         } else if (format === 'jpeg') {
-            const newCanvas = document.createElement('canvas');
-            newCanvas.width = canvas.width;
-            newCanvas.height = canvas.height;
-            const ctx = newCanvas.getContext('2d');
-            ctx.fillStyle = bgColor;
-            ctx.fillRect(0, 0, newCanvas.width, newCanvas.height);
-            ctx.drawImage(canvas, 0, 0);
             newCanvas.toBlob((blob) => {
                 saveAs(blob, `${filename}.jpeg`);
             }, 'image/jpeg');
         }
-    }, [bgColor]);
+    }, [bgColor, margin]);
 
     const handleLogoUpload = (e) => {
         const file = e.target.files[0];
@@ -87,14 +94,13 @@ const QrCodeGeneratorPage = () => {
                                 <CardDescription>Enter text or a URL, customize your QR code, and download it instantly.</CardDescription>
                             </CardHeader>
                             <CardContent className="flex flex-col items-center justify-center gap-6">
-                                <div className="p-4 rounded-lg" style={{ background: bgColor }}>
+                                <div className="rounded-lg" style={{ background: bgColor, padding: `${margin * 4}px` }}>
                                     <QRCodeSVG
                                         value={qrValue || 'https://ashwheel.com'}
                                         size={256}
                                         fgColor={fgColor}
                                         bgColor="transparent"
                                         level={"H"}
-                                        marginSize={margin}
                                         imageSettings={logoImage ? {
                                             src: logoImage,
                                             height: logoHeight,
@@ -109,9 +115,8 @@ const QrCodeGeneratorPage = () => {
                                         value={qrValue || 'https://ashwheel.com'}
                                         size={512}
                                         fgColor={fgColor}
-                                        bgColor={bgColor}
+                                        bgColor="transparent"
                                         level={"H"}
-                                        marginSize={margin * 4}
                                         imageSettings={logoImage ? {
                                             src: logoImage,
                                             height: logoHeight * 2,

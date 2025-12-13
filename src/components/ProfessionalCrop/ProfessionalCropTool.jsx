@@ -16,9 +16,12 @@ const ProfessionalCropTool = ({ imageUrl, onCropComplete, aspectRatio = null }) 
     useEffect(() => {
         if (!imageUrl || !canvasRef.current) return;
 
+        const canvasWidth = Math.min(window.innerWidth - 100, 1200);
+        const canvasHeight = Math.min(window.innerHeight - 300, 800);
+        
         const canvas = new fabric.Canvas(canvasRef.current, {
-            width: 800,
-            height: 600,
+            width: canvasWidth,
+            height: canvasHeight,
             backgroundColor: '#f5f5f5',
         });
 
@@ -52,17 +55,17 @@ const ProfessionalCropTool = ({ imageUrl, onCropComplete, aspectRatio = null }) 
                 top: canvas.height / 2,
                 width: cropWidth,
                 height: cropHeight,
-                fill: 'rgba(0,0,0,0.3)',
-                stroke: '#3b82f6',
-                strokeWidth: 3,
-                strokeDashArray: [10, 5],
+                fill: 'transparent',
+                stroke: '#ff0000',
+                strokeWidth: 6,
                 originX: 'center',
                 originY: 'center',
                 selectable: true,
                 hasControls: true,
                 lockRotation: true,
-                cornerColor: '#3b82f6',
-                cornerSize: 12,
+                cornerColor: '#00ff00',
+                cornerSize: 15,
+                borderColor: '#0000ff',
             });
 
             canvas.add(cropRect);

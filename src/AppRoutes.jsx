@@ -31,6 +31,7 @@ import WpReturnPage from '@/pages/Workshop/WpReturnPage';
 import WsReturnPage from '@/pages/Workshop/WsReturnPage';
 import FollowUpPage from '@/pages/Workshop/FollowUpPage';
 import JournalEntryPage from '@/pages/JournalEntryPage';
+import JournalEntrySettingsPage from '@/pages/JournalEntrySettingsPage';
 import PartyLedgerPage from '@/pages/PartyLedgerPage';
 import ReceiptPage from '@/pages/ReceiptPage';
 import AshwheelProPage from '@/pages/AshwheelProPage';
@@ -161,6 +162,7 @@ const AppRoutes = () => {
 
         {/* Journal Entry Module */}
         <Route path="/journal-entry" element={<ProtectedRoute module="journal_entry"><JournalEntryPage /></ProtectedRoute>} />
+        <Route path="/journal-entry-settings" element={<ProtectedRoute module="journal_entry"><JournalEntrySettingsPage /></ProtectedRoute>} />
         <Route path="/party-ledger" element={<ProtectedRoute module="party_ledger"><PartyLedgerPage /></ProtectedRoute>} />
         <Route path="/receipts" element={<ProtectedRoute module="receipts"><ReceiptPage /></ProtectedRoute>} />
 

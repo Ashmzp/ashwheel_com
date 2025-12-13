@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef } from 'react';
 import SEO from '@/components/SEO';
 import { Link } from 'react-router-dom';
 import { DndProvider } from 'react-dnd';
@@ -14,6 +14,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { ArrowLeft, HelpCircle } from 'lucide-react';
 
 import ProfessionalImageCropper from '@/components/common/ProfessionalImageCropper';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import SetupView from '@/components/PassportPhotoMaker/SetupView';
 import ResultView from '@/components/PassportPhotoMaker/ResultView';
 
@@ -52,17 +53,6 @@ const PassportPhotoMakerPage = () => {
 
   const aspect = 3.5 / 4.5;
 
-  // Convert base64 to blob URL for react-easy-crop compatibility
-  const base64ToBlobUrl = (base64) => {
-    const arr = base64.split(',');
-    const mime = arr[0].match(/:(.*?);/)[1];
-    const bstr = atob(arr[1]);
-    let n = bstr.length;
-    const u8arr = new Uint8Array(n);
-    while (n--) u8arr[n] = bstr.charCodeAt(n);
-    return URL.createObjectURL(new Blob([u8arr], { type: mime }));
-  };
-
   const handleImageUpload = (e) => {
     const files = Array.from(e.target.files);
     const imageFiles = files.filter(file => file.type.startsWith('image/'));
@@ -75,23 +65,15 @@ const PassportPhotoMakerPage = () => {
     imageFiles.forEach(file => {
       const reader = new FileReader();
       reader.onload = (event) => {
-        const img = new Image();
-        img.onload = () => {
-          const blobUrl = base64ToBlobUrl(event.target.result);
-          const newPhoto = {
-            id: uuidv4(),
-            source: blobUrl,
-            originalBase64: event.target.result,
-            cropped: null,
-            width: img.width,
-            height: img.height
-          };
-          setPhotos(prev => [...prev, newPhoto]);
-          if (!currentCroppingPhoto && imageFiles.indexOf(file) === 0) {
-            startCropping(newPhoto);
-          }
+        const newPhoto = { 
+          id: uuidv4(), 
+          source: event.target.result,
+          cropped: null
         };
-        img.src = event.target.result;
+        setPhotos(prev => [...prev, newPhoto]);
+        if (!currentCroppingPhoto && imageFiles.indexOf(file) === 0) {
+          startCropping(newPhoto);
+        }
       };
       reader.readAsDataURL(file);
     });
@@ -107,8 +89,6 @@ const PassportPhotoMakerPage = () => {
     setPhotos(prevPhotos => prevPhotos.map(p => p.id === currentCroppingPhoto.id ? { ...p, cropped: croppedUrl } : p));
     setCurrentCroppingPhoto(null);
   };
-
-
 
   const removePhoto = (id) => {
     setPhotos(prev => prev.filter(p => p.id !== id));
@@ -244,14 +224,18 @@ const PassportPhotoMakerPage = () => {
         </main>
       </div>
 
-      {currentCroppingPhoto && (
-        <ProfessionalImageCropper
-          imageSrc={currentCroppingPhoto.source}
-          onCancel={() => setCurrentCroppingPhoto(null)}
-          onSave={handleCropComplete}
-          initialAspectRatio={aspect}
-        />
-      )}
+      <Dialog open={!!currentCroppingPhoto} onOpenChange={(isOpen) => !isOpen && setCurrentCroppingPhoto(null)}>
+        <DialogContent className="max-w-none w-[98vw] h-[95vh] !top-[2vh] !translate-y-0 p-0 overflow-hidden flex flex-col bg-background border-none gap-0">
+          {currentCroppingPhoto && (
+            <ProfessionalImageCropper
+              imageSrc={currentCroppingPhoto.source}
+              onCancel={() => setCurrentCroppingPhoto(null)}
+              onSave={handleCropComplete}
+              initialAspectRatio={aspect}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </DndProvider>
   );
 };

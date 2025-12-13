@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/customSupabaseClient';
 import { v4 as uuidv4 } from 'uuid';
+import { format } from 'date-fns';
 import { sanitizeSearchTerm, validatePageSize } from '@/utils/security/inputValidator';
 import { validateSession } from '@/utils/security/authValidator';
 import { safeErrorMessage, logError } from '@/utils/security/errorHandler';
@@ -35,7 +36,7 @@ export const saveReceipt = async (receiptData) => {
     }
 };
 
-export const getReceipts = async ({ page = 1, pageSize = 10, searchTerm = '' }) => {
+export const getReceipts = async ({ page = 1, pageSize = 10, searchTerm = '', startDate, endDate }) => {
     try {
       await validateSession();
       const userId = await getCurrentUserId();
@@ -51,6 +52,13 @@ export const getReceipts = async ({ page = 1, pageSize = 10, searchTerm = '' }) 
           .order('receipt_date', { ascending: false })
           .order('created_at', { ascending: false })
           .range(from, to);
+
+      if (startDate) {
+          query = query.gte('receipt_date', format(new Date(startDate), 'yyyy-MM-dd'));
+      }
+      if (endDate) {
+          query = query.lte('receipt_date', format(new Date(endDate), 'yyyy-MM-dd'));
+      }
 
       if (sanitizedSearch) {
           query = query.or(`narration.ilike.%${sanitizedSearch}%,customers.customer_name.ilike.%${sanitizedSearch}%`);

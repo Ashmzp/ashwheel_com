@@ -6,6 +6,9 @@ import WorkshopConfig from './WorkshopConfig';
 import BookingConfig from './BookingConfig';
 import DataBackup from './DataBackup';
 import PriceList from './PriceList';
+import { Link } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
+import { Settings as SettingsIcon } from 'lucide-react';
 import useSettingsStore from '@/stores/settingsStore';
 import { useToast } from '@/components/ui/use-toast';
 import { validateCompanyDetails } from '@/utils/validation';
@@ -131,11 +134,12 @@ const Settings = () => {
         <p className="text-muted-foreground">Manage your application settings and configurations.</p>
       </div>
       <Tabs defaultValue="company" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
+        <TabsList className="grid w-full grid-cols-2 md:grid-cols-3 lg:grid-cols-7">
           <TabsTrigger value="company">Company Details</TabsTrigger>
           <TabsTrigger value="invoice">Invoice Config</TabsTrigger>
           <TabsTrigger value="workshop">Workshop Config</TabsTrigger>
           <TabsTrigger value="booking">Booking Config</TabsTrigger>
+          <TabsTrigger value="journal">Journal Entry</TabsTrigger>
           <TabsTrigger value="pricelist">Price List</TabsTrigger>
           <TabsTrigger value="backup">Data Backup</TabsTrigger>
         </TabsList>
@@ -172,6 +176,16 @@ const Settings = () => {
         </TabsContent>
         <TabsContent value="booking">
           <BookingConfig />
+        </TabsContent>
+        <TabsContent value="journal">
+          <div className="p-6">
+            <Link to="/journal-entry-settings">
+              <Button>
+                <SettingsIcon className="mr-2 h-4 w-4" />
+                Configure Journal Entry Settings
+              </Button>
+            </Link>
+          </div>
         </TabsContent>
         <TabsContent value="pricelist">
           <PriceList />

@@ -42,47 +42,74 @@ const createHeader = (invoiceNumber, logo) => {
 };
 
 const createInfoSection = (date, dueDate, billFrom, billTo, total, currency) => {
-    return new Table({
-        width: { size: 100, type: WidthType.PERCENTAGE },
-        columnWidths: [50, 50],
-        borders: { all: { style: BorderStyle.NONE } },
-        rows: [
-            new TableRow({
-                children: [
-                    new TableCell({
-                        children: [
-                            new Paragraph({ text: "FROM:", style: "subheading" }),
-                            ...billFrom.split('\n').map(line => new Paragraph(line)),
-                        ],
-                        borders: { all: { style: BorderStyle.NONE } },
-                    }),
-                    new TableCell({
-                        children: [
-                            new Paragraph({ text: "TO:", style: "subheading", alignment: AlignmentType.RIGHT }),
-                            ...billTo.split('\n').map(line => new Paragraph({ text: line, alignment: AlignmentType.RIGHT })),
-                        ],
-                        borders: { all: { style: BorderStyle.NONE } },
-                    }),
-                ],
-            }),
-            new TableRow({
-                children: [
-                    new TableCell({ children: [new Paragraph("")], borders: { all: { style: BorderStyle.NONE } } }),
-                    new TableCell({
-                        children: [
-                            new Paragraph({ text: "Date:", style: "subheading", alignment: AlignmentType.RIGHT }),
-                            new Paragraph({ text: date, alignment: AlignmentType.RIGHT }),
-                            new Paragraph({ text: "Due Date:", style: "subheading", alignment: AlignmentType.RIGHT }),
-                            new Paragraph({ text: dueDate || 'N/A', alignment: AlignmentType.RIGHT }),
-                            new Paragraph({ text: "Total Amount:", style: "subheading", alignment: AlignmentType.RIGHT }),
-                            new Paragraph({ text: formatCurrency(total, currency), alignment: AlignmentType.RIGHT, style: "totalAmount" }),
-                        ],
-                        borders: { all: { style: BorderStyle.NONE } },
-                    }),
-                ],
-            }),
-        ],
-    });
+    return [
+        new Table({
+            width: { size: 100, type: WidthType.PERCENTAGE },
+            columnWidths: [50, 50],
+            borders: { all: { style: BorderStyle.NONE } },
+            rows: [
+                new TableRow({
+                    children: [
+                        new TableCell({
+                            children: [
+                                new Paragraph({ text: "FROM:", style: "subheading" }),
+                                ...billFrom.split('\n').map(line => new Paragraph({ text: line, run: { size: 20 } })),
+                            ],
+                            borders: { all: { style: BorderStyle.NONE } },
+                        }),
+                        new TableCell({
+                            children: [
+                                new Paragraph({ text: "TO:", style: "subheading", alignment: AlignmentType.RIGHT }),
+                                ...billTo.split('\n').map(line => new Paragraph({ text: line, alignment: AlignmentType.RIGHT, run: { size: 20 } })),
+                            ],
+                            borders: { all: { style: BorderStyle.NONE } },
+                        }),
+                    ],
+                }),
+            ],
+        }),
+        new Paragraph({ spacing: { after: 300 } }),
+        new Table({
+            width: { size: 100, type: WidthType.PERCENTAGE },
+            columnWidths: [33, 33, 34],
+            borders: { all: { style: BorderStyle.NONE } },
+            rows: [
+                new TableRow({
+                    children: [
+                        new TableCell({
+                            children: [
+                                new Paragraph({ text: "Date:", style: "subheading" }),
+                                new Paragraph({ text: date, run: { size: 20 } }),
+                            ],
+                            borders: { all: { style: BorderStyle.NONE } },
+                        }),
+                        new TableCell({
+                            children: [
+                                new Paragraph({ text: "Due Date:", style: "subheading" }),
+                                new Paragraph({ text: dueDate || 'N/A', run: { size: 20 } }),
+                            ],
+                            borders: { all: { style: BorderStyle.NONE } },
+                        }),
+                        new TableCell({
+                            children: [
+                                new Paragraph({ text: "Total Amount:", style: "subheading" }),
+                                new Paragraph({ text: formatCurrency(total, currency), style: "totalAmount" }),
+                            ],
+                            borders: { all: { style: BorderStyle.NONE } },
+                        }),
+                    ],
+                }),
+            ],
+        }),
+    ];
+};
+
+const calculateItemAmount = (item) => {
+    const itemTotal = item.quantity * item.rate;
+    const itemDiscountAmount = item.discountType === '%'
+        ? (itemTotal * item.discount) / 100
+        : item.discount;
+    return itemTotal - itemDiscountAmount;
 };
 
 const createItemsTable = (items, currency) => {
@@ -92,19 +119,19 @@ const createItemsTable = (items, currency) => {
         rows: [
             new TableRow({
                 children: [
-                    new TableCell({ children: [new Paragraph({ text: "Item", style: "tableHeader" })], shading: { fill: "4F4F4F" } }),
-                    new TableCell({ children: [new Paragraph({ text: "Qty", style: "tableHeader", alignment: AlignmentType.RIGHT })], shading: { fill: "4F4F4F" } }),
-                    new TableCell({ children: [new Paragraph({ text: "Rate", style: "tableHeader", alignment: AlignmentType.RIGHT })], shading: { fill: "4F4F4F" } }),
-                    new TableCell({ children: [new Paragraph({ text: "Amount", style: "tableHeader", alignment: AlignmentType.RIGHT })], shading: { fill: "4F4F4F" } }),
+                    new TableCell({ children: [new Paragraph({ text: "ITEM", style: "tableHeader" })], shading: { fill: "1F2937" } }),
+                    new TableCell({ children: [new Paragraph({ text: "QTY", style: "tableHeader", alignment: AlignmentType.RIGHT })], shading: { fill: "1F2937" } }),
+                    new TableCell({ children: [new Paragraph({ text: "RATE", style: "tableHeader", alignment: AlignmentType.RIGHT })], shading: { fill: "1F2937" } }),
+                    new TableCell({ children: [new Paragraph({ text: "AMOUNT", style: "tableHeader", alignment: AlignmentType.RIGHT })], shading: { fill: "1F2937" } }),
                 ],
             }),
             ...items.flatMap(item => [
                 new TableRow({
                     children: [
-                        new TableCell({ children: [new Paragraph({ text: item.description, bold: true })] }),
-                        new TableCell({ children: [new Paragraph({ text: String(item.quantity), alignment: AlignmentType.RIGHT })] }),
-                        new TableCell({ children: [new Paragraph({ text: formatCurrency(item.rate, currency), alignment: AlignmentType.RIGHT })] }),
-                        new TableCell({ children: [new Paragraph({ text: formatCurrency(item.quantity * item.rate, currency), alignment: AlignmentType.RIGHT })] }),
+                        new TableCell({ children: [new Paragraph({ text: item.description, bold: true })], borders: { bottom: { style: BorderStyle.SINGLE, size: 2, color: "E5E7EB" } } }),
+                        new TableCell({ children: [new Paragraph({ text: String(item.quantity), alignment: AlignmentType.RIGHT })], borders: { bottom: { style: BorderStyle.SINGLE, size: 2, color: "E5E7EB" } } }),
+                        new TableCell({ children: [new Paragraph({ text: formatCurrency(item.rate, currency), alignment: AlignmentType.RIGHT })], borders: { bottom: { style: BorderStyle.SINGLE, size: 2, color: "E5E7EB" } } }),
+                        new TableCell({ children: [new Paragraph({ text: formatCurrency(calculateItemAmount(item), currency), alignment: AlignmentType.RIGHT })], borders: { bottom: { style: BorderStyle.SINGLE, size: 2, color: "E5E7EB" } } }),
                     ],
                 }),
             ]),
@@ -118,44 +145,44 @@ const createTotalsTable = ({ subtotal, totalItemDiscount, overallDiscount, overa
     const taxAmount = taxableAmount * tax / 100;
     
     return new Table({
-        width: { size: 100, type: WidthType.PERCENTAGE },
-        columnWidths: [70, 30],
+        width: { size: 40, type: WidthType.PERCENTAGE },
+        alignment: AlignmentType.RIGHT,
         borders: { all: { style: BorderStyle.NONE } },
         rows: [
             new TableRow({
                 children: [
-                    new TableCell({ children: [new Paragraph({ text: "Subtotal", alignment: AlignmentType.RIGHT })] }),
-                    new TableCell({ children: [new Paragraph({ text: formatCurrency(subtotal, currency), alignment: AlignmentType.RIGHT })] }),
+                    new TableCell({ children: [new Paragraph({ text: "Subtotal:", run: { color: "6B7280" } })], borders: { all: { style: BorderStyle.NONE } } }),
+                    new TableCell({ children: [new Paragraph({ text: formatCurrency(subtotal, currency), alignment: AlignmentType.RIGHT })], borders: { all: { style: BorderStyle.NONE } } }),
                 ]
             }),
             ...(totalItemDiscount > 0 ? [new TableRow({
                 children: [
-                    new TableCell({ children: [new Paragraph({ text: "Item Discounts", alignment: AlignmentType.RIGHT })] }),
-                    new TableCell({ children: [new Paragraph({ text: `-${formatCurrency(totalItemDiscount, currency)}`, alignment: AlignmentType.RIGHT })] }),
+                    new TableCell({ children: [new Paragraph({ text: "Item Discounts:", run: { color: "6B7280" } })], borders: { all: { style: BorderStyle.NONE } } }),
+                    new TableCell({ children: [new Paragraph({ text: `-${formatCurrency(totalItemDiscount, currency)}`, alignment: AlignmentType.RIGHT, run: { color: "DC2626" } })], borders: { all: { style: BorderStyle.NONE } } }),
                 ]
             })] : []),
             ...(overallDiscount > 0 ? [new TableRow({
                 children: [
-                    new TableCell({ children: [new Paragraph({ text: `Discount (${overallDiscount}${overallDiscountType})`, alignment: AlignmentType.RIGHT })] }),
-                    new TableCell({ children: [new Paragraph({ text: `-${formatCurrency(overallDiscountAmount, currency)}`, alignment: AlignmentType.RIGHT })] }),
+                    new TableCell({ children: [new Paragraph({ text: `Discount (${overallDiscount}${overallDiscountType}):`, run: { color: "6B7280" } })], borders: { all: { style: BorderStyle.NONE } } }),
+                    new TableCell({ children: [new Paragraph({ text: `-${formatCurrency(overallDiscountAmount, currency)}`, alignment: AlignmentType.RIGHT, run: { color: "DC2626" } })], borders: { all: { style: BorderStyle.NONE } } }),
                 ]
             })] : []),
             ...(tax > 0 ? [new TableRow({
                 children: [
-                    new TableCell({ children: [new Paragraph({ text: `Tax (${tax}%)`, alignment: AlignmentType.RIGHT })] }),
-                    new TableCell({ children: [new Paragraph({ text: `+${formatCurrency(taxAmount, currency)}`, alignment: AlignmentType.RIGHT })] }),
+                    new TableCell({ children: [new Paragraph({ text: `Tax (${tax}%):`, run: { color: "6B7280" } })], borders: { all: { style: BorderStyle.NONE } } }),
+                    new TableCell({ children: [new Paragraph({ text: `+${formatCurrency(taxAmount, currency)}`, alignment: AlignmentType.RIGHT })], borders: { all: { style: BorderStyle.NONE } } }),
                 ]
             })] : []),
             ...(shipping > 0 ? [new TableRow({
                 children: [
-                    new TableCell({ children: [new Paragraph({ text: "Shipping", alignment: AlignmentType.RIGHT })] }),
-                    new TableCell({ children: [new Paragraph({ text: `+${formatCurrency(shipping, currency)}`, alignment: AlignmentType.RIGHT })] }),
+                    new TableCell({ children: [new Paragraph({ text: "Shipping:", run: { color: "6B7280" } })], borders: { all: { style: BorderStyle.NONE } } }),
+                    new TableCell({ children: [new Paragraph({ text: `+${formatCurrency(shipping, currency)}`, alignment: AlignmentType.RIGHT })], borders: { all: { style: BorderStyle.NONE } } }),
                 ]
             })] : []),
             new TableRow({
                 children: [
-                    new TableCell({ children: [new Paragraph({ text: "Total Due", alignment: AlignmentType.RIGHT, style: "totalText" })] }),
-                    new TableCell({ children: [new Paragraph({ text: formatCurrency(total, currency), alignment: AlignmentType.RIGHT, style: "totalText" })] }),
+                    new TableCell({ children: [new Paragraph({ text: "Total Due:", style: "totalText" })], borders: { top: { style: BorderStyle.DOUBLE, size: 12, color: "1F2937" }, bottom: { style: BorderStyle.NONE }, left: { style: BorderStyle.NONE }, right: { style: BorderStyle.NONE } } }),
+                    new TableCell({ children: [new Paragraph({ text: formatCurrency(total, currency), alignment: AlignmentType.RIGHT, style: "totalText" })], borders: { top: { style: BorderStyle.DOUBLE, size: 12, color: "1F2937" }, bottom: { style: BorderStyle.NONE }, left: { style: BorderStyle.NONE }, right: { style: BorderStyle.NONE } } }),
                 ],
             }),
         ],
@@ -163,42 +190,53 @@ const createTotalsTable = ({ subtotal, totalItemDiscount, overallDiscount, overa
 };
 
 const createFooter = (notes, terms, paymentDetails) => {
+    const footerRows = [];
+    
+    if (notes || terms) {
+        footerRows.push(
+            new TableRow({
+                children: [
+                    ...(notes ? [new TableCell({
+                        children: [
+                            new Paragraph({ text: "Notes", style: "subheading" }),
+                            ...notes.split('\n').map(line => new Paragraph({ text: line, run: { color: "6B7280" } })),
+                        ],
+                        borders: { all: { style: BorderStyle.NONE } }
+                    })] : [new TableCell({ children: [new Paragraph("")], borders: { all: { style: BorderStyle.NONE } } })]),
+                    ...(terms ? [new TableCell({
+                        children: [
+                            new Paragraph({ text: "Terms", style: "subheading" }),
+                            ...terms.split('\n').map(line => new Paragraph({ text: line, run: { color: "6B7280" } })),
+                        ],
+                        borders: { all: { style: BorderStyle.NONE } }
+                    })] : [new TableCell({ children: [new Paragraph("")], borders: { all: { style: BorderStyle.NONE } } })]),
+                ],
+            })
+        );
+    }
+    
+    if (paymentDetails) {
+        footerRows.push(
+            new TableRow({
+                children: [
+                    new TableCell({
+                        children: [
+                            new Paragraph({ text: "Payment Details", style: "subheading", alignment: AlignmentType.CENTER }),
+                            ...paymentDetails.split('\n').map(line => new Paragraph({ text: line, alignment: AlignmentType.CENTER, run: { color: "6B7280" } })),
+                        ],
+                        columnSpan: 2,
+                        borders: { top: { style: BorderStyle.SINGLE, size: 2, color: "E5E7EB" }, bottom: { style: BorderStyle.NONE }, left: { style: BorderStyle.NONE }, right: { style: BorderStyle.NONE } }
+                    })
+                ]
+            })
+        );
+    }
+    
     return new Table({
         width: { size: 100, type: WidthType.PERCENTAGE },
         columnWidths: [50, 50],
         borders: { all: { style: BorderStyle.NONE } },
-        rows: [
-            new TableRow({
-                children: [
-                    new TableCell({
-                        children: [
-                            new Paragraph({ text: "Notes", style: "subheading" }),
-                            new Paragraph(notes),
-                        ],
-                        borders: { all: { style: BorderStyle.NONE } }
-                    }),
-                    new TableCell({
-                        children: [
-                            new Paragraph({ text: "Terms", style: "subheading" }),
-                            new Paragraph(terms),
-                        ],
-                        borders: { all: { style: BorderStyle.NONE } }
-                    }),
-                ],
-            }),
-            new TableRow({
-                children: [
-                    new TableCell({
-                        children: [
-                            new Paragraph({ text: "Payment Details", style: "subheading" }),
-                            new Paragraph(paymentDetails),
-                        ],
-                        columnSpan: 2,
-                        borders: { top: { style: BorderStyle.SINGLE, size: 2, color: "E0E0E0" }, bottom: { style: BorderStyle.NONE }, left: { style: BorderStyle.NONE }, right: { style: BorderStyle.NONE } }
-                    })
-                ]
-            })
-        ],
+        rows: footerRows,
     });
 };
 
@@ -218,7 +256,7 @@ export const generateDocx = (data) => {
             children: [
                 createHeader(data.invoiceNumber, data.logo),
                 new Paragraph({ spacing: { after: 400 } }),
-                createInfoSection(data.date, data.dueDate, data.billFrom, data.billTo, data.total, data.currency),
+                ...createInfoSection(data.date, data.dueDate, data.billFrom, data.billTo, data.total, data.currency),
                 new Paragraph({ spacing: { after: 400 } }),
                 createItemsTable(data.items, data.currency),
                 new Paragraph({ spacing: { after: 200 } }),

@@ -15,88 +15,62 @@ import { useToast } from '@/components/ui/use-toast';
 import { saveJournalEntry, searchChassisForJournal } from '@/utils/db/journalEntries';
 import { getCustomers } from '@/utils/db/customers';
 import { getPriceList } from '@/utils/db/priceList';
-import { useDebounce } from '@/hooks/useDebounce';
-
-const AutocompleteInput = ({ value, onChange, onSelect, searchFunction, placeholder, displayField, valueField }) => {
-  const [searchTerm, setSearchTerm] = useState(value || '');
-  const [results, setResults] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isOpen, setIsOpen] = useState(false);
-  const debouncedSearchTerm = useDebounce(searchTerm, 300);
-
-  useEffect(() => {
-    setSearchTerm(value || '');
-  }, [value]);
-
-  useEffect(() => {
-    if (debouncedSearchTerm) {
-      setIsLoading(true);
-      searchFunction(debouncedSearchTerm)
-        .then(data => {
-          setResults(data);
-          setIsLoading(false);
-          setIsOpen(true);
-        })
-        .catch(err => {
-          console.error(err);
-          setIsLoading(false);
-        });
-    } else {
-      setResults([]);
-      setIsOpen(false);
-    }
-  }, [debouncedSearchTerm, searchFunction]);
-
-  const handleSelect = (item) => {
-    setSearchTerm(item[displayField]);
-    onSelect(item);
-    setIsOpen(false);
-  };
-
-  return (
-    <div className="relative">
-      <Input
-        placeholder={placeholder}
-        value={searchTerm}
-        onChange={(e) => {
-          setSearchTerm(e.target.value);
-          onChange(e.target.value);
-        }}
-        onFocus={() => setIsOpen(results.length > 0)}
-        onBlur={() => setTimeout(() => setIsOpen(false), 150)}
-      />
-      {isOpen && (
-        <div className="absolute z-10 w-full bg-card border rounded-md mt-1 max-h-60 overflow-y-auto">
-          {isLoading ? (
-            <div className="p-2 text-center">Loading...</div>
-          ) : results.length > 0 ? (
-            results.map((item, index) => (
-              <div
-                key={item[valueField] || index}
-                className="p-2 hover:bg-accent cursor-pointer"
-                onClick={() => handleSelect(item)}
-              >
-                {item[displayField]} {item.model_name ? `(${item.model_name})` : ''}
-              </div>
-            ))
-          ) : (
-            <div className="p-2 text-center text-muted-foreground">No results found.</div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-};
+import { getJournalEntrySettings } from '@/utils/db/journalEntrySettings';
+import { supabase } from '@/lib/customSupabaseClient';
+import AutocompleteInput from '@/components/common/AutocompleteInput';
 
 const JournalEntryForm = () => {
   const { formData, setFormData, resetForm, isEditing, setActiveTab } = useJournalEntryStore();
   const { toast } = useToast();
   const [isSaving, setIsSaving] = useState(false);
   const [priceList, setPriceList] = useState([]);
+  const [priceFields, setPriceFields] = useState([]);
+  const [customers, setCustomers] = useState([]);
+  const [vehicles, setVehicles] = useState([]);
+  const [vehicleSearch, setVehicleSearch] = useState('');
 
   useEffect(() => {
     getPriceList().then(setPriceList).catch(console.error);
+    loadSettings();
   }, []);
+
+  const loadSettings = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const settings = await getJournalEntrySettings(user.id);
+      setPriceFields(settings.price_fields.filter(f => f.enabled));
+    } catch (error) {
+      console.error('Failed to load settings:', error);
+    }
+  };
+
+  const searchCustomers = async (term) => {
+    if (!term) return;
+    const { data } = await getCustomers({ searchTerm: term, pageSize: 20 });
+    setCustomers(data || []);
+  };
+
+  const searchVehicles = async (term) => {
+    if (!term || term.length < 2) {
+      setVehicles([]);
+      return;
+    }
+    try {
+      console.log('Searching vehicles for:', term);
+      const data = await searchChassisForJournal(term);
+      console.log('Vehicle search results:', data);
+      setVehicles(data || []);
+    } catch (error) {
+      console.error('Error searching vehicles:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Search Error',
+        description: error.message,
+      });
+      setVehicles([]);
+    }
+  };
 
   const handleInputChange = (field, value) => {
     setFormData({ ...formData, [field]: value });
@@ -107,27 +81,35 @@ const JournalEntryForm = () => {
   };
 
   const handleCustomerSelect = (customer) => {
+    const name = typeof customer === 'string' ? customer : customer.customer_name;
     setFormData({
       ...formData,
-      party_id: customer.id,
-      party_name: customer.customer_name,
+      party_id: customer.id || null,
+      party_name: name,
     });
   };
 
-  const handleChassisSelect = (vehicle) => {
-    const priceFromList = priceList.find(p => p.model_name === vehicle.model_name)?.price || '';
+  const handleVehicleSelect = (vehicle) => {
+    if (typeof vehicle === 'string') {
+      setFormData({ ...formData, chassis_no: vehicle });
+      setVehicleSearch('');
+      return;
+    }
     setFormData({
       ...formData,
-      chassis_no: vehicle.chassis_no,
-      model_name: vehicle.model_name,
-      invoice_no: vehicle.invoice_no,
-      price: vehicle.price || priceFromList,
+      chassis_no: vehicle.chassis_no || '',
+      model_name: vehicle.model_name || '',
+      invoice_no: vehicle.invoice_no || '',
     });
+    setVehicleSearch('');
+    setVehicles([]);
   };
 
-  const searchCustomers = async (term) => {
-    const { data } = await getCustomers({ searchTerm: term, pageSize: 10 });
-    return data;
+  const handlePriceChange = (fieldId, value) => {
+    const breakdown = formData.price_breakdown || {};
+    breakdown[fieldId] = parseFloat(value) || 0;
+    const total = Object.values(breakdown).reduce((sum, val) => sum + val, 0);
+    setFormData({ ...formData, price_breakdown: breakdown, price: total });
   };
 
   const handleSubmit = async (e) => {
@@ -217,41 +199,65 @@ const JournalEntryForm = () => {
             </div>
           </div>
           <div>
-            <Label htmlFor="party_name">Party Name *</Label>
             <AutocompleteInput
+              label="Party Name"
               value={formData.party_name || ''}
-              onChange={(value) => handleInputChange('party_name', value)}
+              onChange={(value) => {
+                handleInputChange('party_name', value);
+                searchCustomers(value);
+              }}
               onSelect={handleCustomerSelect}
-              searchFunction={searchCustomers}
+              suggestions={customers.map(c => ({ label: c.customer_name, ...c }))}
               placeholder="Search by name or mobile..."
-              displayField="customer_name"
-              valueField="id"
+              required
             />
           </div>
           <div>
-            <Label htmlFor="chassis_search">Search Vehicle</Label>
+            <Label>Search Vehicle (Optional)</Label>
             <AutocompleteInput
-              value={formData.chassis_no || ''}
-              onChange={(value) => handleInputChange('chassis_no', value)}
-              onSelect={handleChassisSelect}
-              searchFunction={searchChassisForJournal}
-              placeholder="Search by chassis, engine, or invoice no..."
-              displayField="chassis_no"
-              valueField="chassis_no"
+              value={vehicleSearch}
+              onChange={(value) => {
+                setVehicleSearch(value);
+                searchVehicles(value);
+              }}
+              onSelect={handleVehicleSelect}
+              suggestions={vehicles.map(v => ({ 
+                label: `${v.chassis_no || ''} - ${v.model_name || ''} (${v.invoice_no || ''})`, 
+                ...v 
+              }))}
+              placeholder="Type chassis/engine/invoice to search..."
             />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <Label htmlFor="chassis_no">Chassis No</Label>
-              <Input id="chassis_no" name="chassis_no" value={formData.chassis_no || ''} onChange={(e) => handleInputChange('chassis_no', e.target.value)} />
+              <Input 
+                id="chassis_no" 
+                name="chassis_no" 
+                value={formData.chassis_no || ''} 
+                onChange={(e) => handleInputChange('chassis_no', e.target.value)} 
+                placeholder="Enter manually or search above"
+              />
             </div>
             <div>
               <Label htmlFor="model_name">Model Name</Label>
-              <Input id="model_name" name="model_name" value={formData.model_name || ''} onChange={(e) => handleInputChange('model_name', e.target.value)} />
+              <Input 
+                id="model_name" 
+                name="model_name" 
+                value={formData.model_name || ''} 
+                onChange={(e) => handleInputChange('model_name', e.target.value)} 
+                placeholder="Enter manually or search above"
+              />
             </div>
             <div>
               <Label htmlFor="invoice_no">Invoice No</Label>
-              <Input id="invoice_no" name="invoice_no" value={formData.invoice_no || ''} onChange={(e) => handleInputChange('invoice_no', e.target.value)} />
+              <Input 
+                id="invoice_no" 
+                name="invoice_no" 
+                value={formData.invoice_no || ''} 
+                onChange={(e) => handleInputChange('invoice_no', e.target.value)} 
+                placeholder="Enter manually or search above"
+              />
             </div>
           </div>
           <div>
@@ -264,15 +270,31 @@ const JournalEntryForm = () => {
               placeholder="Enter transaction details manually"
             />
           </div>
-          <div>
-            <Label htmlFor="price">Price</Label>
-            <Input
-              id="price"
-              name="price"
-              type="number"
-              value={formData.price || ''}
-              onChange={(e) => handleInputChange('price', e.target.value)}
-            />
+          <div className="space-y-3">
+            <Label>Price Breakdown</Label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {priceFields.map(field => (
+                <div key={field.id}>
+                  <Label htmlFor={field.id} className="text-sm">{field.label}</Label>
+                  <Input
+                    id={field.id}
+                    type="number"
+                    value={formData.price_breakdown?.[field.id] || ''}
+                    onChange={(e) => handlePriceChange(field.id, e.target.value)}
+                    placeholder="0"
+                  />
+                </div>
+              ))}
+            </div>
+            <div className="flex items-center gap-2 pt-2 border-t">
+              <Label className="font-semibold">Total Price:</Label>
+              <Input
+                type="number"
+                value={formData.price || ''}
+                onChange={(e) => handleInputChange('price', e.target.value)}
+                className="w-40"
+              />
+            </div>
           </div>
           <div>
             <Label htmlFor="narration">Narration</Label>

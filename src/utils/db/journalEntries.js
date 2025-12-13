@@ -109,36 +109,30 @@ export const searchChassisForJournal = async (searchTerm) => {
       const userId = await getCurrentUserId();
       const sanitizedSearch = sanitizeSearchTerm(searchTerm);
       
-      const { data: invoiceData, error: invoiceError } = await supabase
-          .from('vehicle_invoices')
-          .select('invoice_no, vehicle_invoice_items(chassis_no, engine_no, model_name, colour, price)')
-          .eq('user_id', userId)
-          .or(`invoice_no.ilike.%${sanitizedSearch}%,vehicle_invoice_items.chassis_no.ilike.%${sanitizedSearch}%,vehicle_invoice_items.engine_no.ilike.%${sanitizedSearch}%`)
-          .limit(5);
+      // Search in vehicle_invoice_items directly
+      const { data: items, error: itemsError } = await supabase
+          .from('vehicle_invoice_items')
+          .select('chassis_no, engine_no, model_name, colour, price, invoice_id, vehicle_invoices!inner(invoice_no, user_id)')
+          .eq('vehicle_invoices.user_id', userId)
+          .or(`chassis_no.ilike.%${sanitizedSearch}%,engine_no.ilike.%${sanitizedSearch}%,model_name.ilike.%${sanitizedSearch}%`)
+          .limit(10);
 
-    if (invoiceError) console.error("Error searching invoice items:", invoiceError);
+      if (itemsError) {
+        logError(itemsError, 'searchChassisForJournal');
+        throw new Error(safeErrorMessage(itemsError));
+      }
 
-    const formattedInvoiceData = (invoiceData || []).flatMap(inv => 
-        inv.vehicle_invoice_items.map(item => ({
-            ...item,
-            invoice_no: inv.invoice_no,
-        }))
-    );
-
-      const { data: stockData, error: stockError } = await supabase
-          .from('stock')
-          .select('chassis_no, engine_no, model_name, colour, price')
-          .eq('user_id', userId)
-          .or(`chassis_no.ilike.%${sanitizedSearch}%,engine_no.ilike.%${sanitizedSearch}%`)
-          .limit(5);
-
-      if (stockError) logError(stockError, 'searchChassisForJournal');
-
-      const combined = [...formattedInvoiceData, ...(stockData || [])];
+      // Format the results
+      const formattedData = (items || []).map(item => ({
+          chassis_no: item.chassis_no,
+          engine_no: item.engine_no,
+          model_name: item.model_name,
+          colour: item.colour,
+          price: item.price,
+          invoice_no: item.vehicle_invoices?.invoice_no || '',
+      }));
       
-      const uniqueResults = Array.from(new Map(combined.map(item => [item.chassis_no, item])).values());
-      
-      return uniqueResults;
+      return formattedData;
     } catch (error) {
       logError(error, 'searchChassisForJournal');
       throw new Error(safeErrorMessage(error));
