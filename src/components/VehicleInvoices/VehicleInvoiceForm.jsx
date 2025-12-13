@@ -60,7 +60,11 @@ const VehicleInvoiceForm = ({ onSave, onCancel }) => {
   }, [setSelectedCustomer]);
   
   const calculateTotals = useCallback(() => {
-    const itemsTotal = (Array.isArray(formData.items) ? formData.items : []).reduce((sum, item) => sum + parseFloat(item.price || 0), 0);
+    const itemsTotal = (Array.isArray(formData.items) ? formData.items : []).reduce((sum, item) => {
+      const price = parseFloat(item.price || 0);
+      const discount = parseFloat(item.discount || 0);
+      return sum + (price - discount);
+    }, 0);
     const extraChargesTotal = Object.values(formData.extra_charges || {}).reduce((sum, charge) => sum + parseFloat(charge || 0), 0);
     const grandTotal = itemsTotal + extraChargesTotal;
     setFormData({ total_amount: grandTotal });
