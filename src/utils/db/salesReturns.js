@@ -65,14 +65,44 @@ export const saveSalesReturn = async (returnData) => {
   try {
     await validateSession();
     const userId = await getCurrentUserId();
-  const dataToSave = { ...returnData, user_id: userId };
-  
-    const { data, error } = await supabase.from('sales_returns').upsert(dataToSave, { onConflict: 'id' }).select().single();
+    
+    // Validation: Check items exist
+    if (!returnData.items || returnData.items.length === 0) {
+      throw new Error('No items to return.');
+    }
+    
+    const chassisNumbers = returnData.items.map(item => item.chassis_no).filter(Boolean);
+    if (chassisNumbers.length === 0) {
+      throw new Error('Invalid items: chassis numbers missing.');
+    }
+    
+    // Step 1: Delete invoice items first (trigger restores stock)
+    if (returnData.invoice_id) {
+      const { error: deleteError } = await supabase
+        .from('vehicle_invoice_items')
+        .delete()
+        .eq('invoice_id', returnData.invoice_id)
+        .in('chassis_no', chassisNumbers);
+      
+      if (deleteError) {
+        logError(deleteError, 'saveSalesReturn - delete items');
+        throw new Error(`Failed to process return: ${safeErrorMessage(deleteError)}`);
+      }
+    }
+    
+    // Step 2: Save sales return record (audit trail)
+    const dataToSave = { ...returnData, user_id: userId };
+    const { data, error } = await supabase
+      .from('sales_returns')
+      .upsert(dataToSave, { onConflict: 'id' })
+      .select()
+      .single();
     
     if (error) {
       logError(error, 'saveSalesReturn');
       throw new Error(safeErrorMessage(error));
     }
+    
     return data;
   } catch (error) {
     logError(error, 'saveSalesReturn');
@@ -111,15 +141,17 @@ export const searchInvoicesForReturn = async (searchTerm) => {
               price,
               hsn,
               gst,
-              vehicle_invoices (
+              vehicle_invoices!inner (
                   id,
                   invoice_no,
                   invoice_date,
                   customer_name,
-                  customer_id
+                  customer_id,
+                  status
               )
           `)
           .eq('user_id', userId)
+          .eq('vehicle_invoices.status', 'active')
           .or(`chassis_no.ilike.%${sanitizedSearch}%,engine_no.ilike.%${sanitizedSearch}%`);
 
       if (itemsError) {

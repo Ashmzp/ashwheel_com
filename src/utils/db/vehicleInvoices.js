@@ -100,21 +100,21 @@ export const saveVehicleInvoice = async (invoiceData) => {
             return await saveVehicleInvoiceOld(invoiceData, userId);
         }
 
-        // For new invoices, check chassis availability first (user-specific)
+        // For new invoices, check if chassis is available in stock
+        // Stock table is the source of truth - if chassis is in stock, it can be invoiced
         const chassisNumbers = (invoiceData.items || []).map(item => item.chassis_no).filter(Boolean);
         if (chassisNumbers.length > 0) {
-            const { data: existingInvoices } = await supabase
-                .from('vehicle_invoice_items')
-                .select('chassis_no, invoice_id, vehicle_invoices!inner(invoice_no, status, user_id)')
+            const { data: stockItems } = await supabase
+                .from('stock')
+                .select('chassis_no')
                 .in('chassis_no', chassisNumbers)
-                .eq('vehicle_invoices.status', 'active')
-                .eq('vehicle_invoices.user_id', userId);
+                .eq('user_id', userId);
             
-            if (existingInvoices && existingInvoices.length > 0) {
-                const duplicates = existingInvoices.map(inv => 
-                    `${inv.chassis_no} (Invoice: ${inv.vehicle_invoices.invoice_no})`
-                ).join(', ');
-                throw new Error(`Chassis already invoiced: ${duplicates}`);
+            const availableChassis = new Set((stockItems || []).map(s => s.chassis_no));
+            const unavailableChassis = chassisNumbers.filter(c => !availableChassis.has(c));
+            
+            if (unavailableChassis.length > 0) {
+                throw new Error(`Chassis not available in stock: ${unavailableChassis.join(', ')}`);
             }
         }
 

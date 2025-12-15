@@ -11,6 +11,7 @@ import { useAuth } from '@/contexts/NewSupabaseAuthContext';
 import SalesReturnForm from '@/components/SalesReturns/SalesReturnForm';
 import SalesReturnList from '@/components/SalesReturns/SalesReturnList';
 import useSalesReturnStore from '@/stores/salesReturnStore';
+import { supabase } from '@/lib/customSupabaseClient';
 
 const SalesReturnPage = () => {
     const [view, setView] = useState('list');
@@ -65,23 +66,35 @@ const SalesReturnPage = () => {
             await saveSalesReturn(returnData);
             
             const stockItems = (Array.isArray(returnData.items) ? returnData.items : []).map(item => ({
-                purchase_id: `SR-${returnData.id}`,
                 model_name: item.model_name,
                 chassis_no: item.chassis_no,
                 engine_no: item.engine_no,
                 colour: item.colour,
-                price: item.price,
+                price: item.price || '0',
                 purchase_date: returnData.return_date,
                 hsn: item.hsn,
-                gst: item.gst
+                gst: item.gst,
+                category: item.category || null
             }));
+            
             await addStock(stockItems);
+            
+            // Mark original invoice as returned
+            const { error: updateError } = await supabase
+                .from('vehicle_invoices')
+                .update({ status: 'returned' })
+                .eq('id', returnData.original_invoice_id);
+            
+            if (updateError) {
+                console.error('Failed to update invoice status:', updateError);
+            }
 
             toast({ title: "Success", description: "Sales return saved and stock updated." });
             setView('list');
             setEditingReturn(null);
             fetchReturns(1, '', { start: '', end: '' });
         } catch (error) {
+            console.error('Sales return save error:', error);
             toast({ title: "Error", description: `Failed to save sales return: ${error.message}`, variant: "destructive" });
         }
     };
