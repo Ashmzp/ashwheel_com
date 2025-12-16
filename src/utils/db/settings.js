@@ -35,6 +35,8 @@ export const saveSettings = async (settings) => {
       "nonRegisteredCustomerFields": settings.nonRegisteredCustomerFields,
       "registeredCustomerFields": settings.registeredCustomerFields,
       custom_fields: settings.customFields,
+      purchase_item_fields: settings.purchaseItemFields,
+      purchase_custom_fields: settings.purchaseCustomFields,
       enable_extra_charges: settings.enable_extra_charges,
       extra_charges_mandatory_for_unregistered: settings.extra_charges_mandatory_for_unregistered,
       fy_counters: settings.fy_counters,
@@ -188,6 +190,8 @@ export const getSettings = async () => {
             ...(data.registeredCustomerFields || {})
         },
         customFields: data.custom_fields,
+        purchaseItemFields: data.purchase_item_fields,
+        purchaseCustomFields: data.purchase_custom_fields,
         enable_extra_charges: data.enable_extra_charges,
         extra_charges_mandatory_for_unregistered: data.extra_charges_mandatory_for_unregistered,
       } : { ...defaults, user_id: userId };

@@ -12,6 +12,7 @@ import { getPurchases } from '@/utils/db/purchases';
 import { parseExcelData } from '@/utils/excel';
 import PurchaseItemsTable from './PurchaseItemsTable';
 import usePurchaseStore from '@/stores/purchaseStore';
+import useSettingsStore from '@/stores/settingsStore';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/NewSupabaseAuthContext';
 import { useQuery } from '@tanstack/react-query';
@@ -30,6 +31,8 @@ const PurchaseForm = ({ onSave, onCancel }) => {
     addItem,
   } = usePurchaseStore();
   const { user, isExpired } = useAuth();
+  const purchaseItemFields = useSettingsStore((state) => state.settings.purchaseItemFields || {});
+  const purchaseCustomFields = useSettingsStore((state) => state.settings.purchaseCustomFields || []);
   
   const [partyNameSearch, setPartyNameSearch] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -98,27 +101,39 @@ const PurchaseForm = ({ onSave, onCancel }) => {
       const importedData = await parseExcelData(file);
       
       const { data: purchasesResult } = await getPurchases({pageSize: 10000});
-      const allChassisNos = purchasesResult.flatMap(p => (p.items || []).map(item => item.chassisNo.toUpperCase()));
+      const allChassisNos = purchasesResult.flatMap(p => (p.items || []).map(item => item.chassisNo?.toUpperCase()));
 
       let newItemsCount = 0;
       importedData.forEach((row, index) => {
-        const chassisNo = (row['Chassis No'] || row['Chassis Number'] || '').toString().toUpperCase();
+        const itemData = { id: Date.now().toString() + index };
+        
+        // Map default fields
+        Object.entries(purchaseItemFields).forEach(([key, field]) => {
+          if (field.enabled) {
+            const value = row[field.label] || '';
+            if (key === 'chassisNo' || key === 'engineNo') {
+              itemData[key] = value.toString().toUpperCase();
+            } else if (key === 'price') {
+              itemData[key] = value || '0';
+            } else {
+              itemData[key] = value || null;
+            }
+          }
+        });
+        
+        // Map custom fields
+        purchaseCustomFields.forEach(field => {
+          if (field.name) {
+            itemData[`custom_${field.id}`] = row[field.name] || '';
+          }
+        });
+        
+        const chassisNo = itemData.chassisNo || '';
         if (chassisNo && !allChassisNos.includes(chassisNo) && !items.some(i => i.chassisNo === chassisNo)) {
-          addItem({
-            id: Date.now().toString() + index,
-            modelName: row['Model Name'] || '',
-            chassisNo: chassisNo,
-            engineNo: (row['Engine No'] || row['Engine Number'] || '').toString().toUpperCase(),
-            colour: row['Colour'] || '',
-            hsn: row['HSN'] || null,
-            gst: row['GST'] || null,
-            price: row['Price'] || '0',
-            category: row['Category'] || null,
-          });
+          addItem(itemData);
           newItemsCount++;
         }
       });
-
 
       if (newItemsCount > 0) {
         toast({ title: "Import Successful", description: `${newItemsCount} items imported.` });
@@ -133,7 +148,40 @@ const PurchaseForm = ({ onSave, onCancel }) => {
   };
 
   const downloadTemplate = () => {
-    const template = 'Model Name,Chassis Number,Engine Number,Colour,Price,HSN,GST,Category\nExample Model,ABC123,ENG123,Red,100000,87112019,28,Scooter';
+    const headers = [];
+    const exampleData = [];
+    
+    console.log('Purchase Item Fields:', purchaseItemFields);
+    console.log('Purchase Custom Fields:', purchaseCustomFields);
+    
+    // Add default fields
+    Object.entries(purchaseItemFields).forEach(([key, field]) => {
+      if (field.enabled) {
+        headers.push(field.label);
+        if (key === 'modelName') exampleData.push('Example Model');
+        else if (key === 'chassisNo') exampleData.push('ABC123');
+        else if (key === 'engineNo') exampleData.push('ENG123');
+        else if (key === 'colour') exampleData.push('Red');
+        else if (key === 'price') exampleData.push('100000');
+        else if (key === 'hsn') exampleData.push('87112019');
+        else if (key === 'gst') exampleData.push('28');
+        else if (key === 'category') exampleData.push('Scooter');
+        else exampleData.push('Sample');
+      }
+    });
+    
+    // Add custom fields
+    purchaseCustomFields.forEach(field => {
+      if (field.name) {
+        headers.push(field.name);
+        exampleData.push('Sample Value');
+      }
+    });
+    
+    console.log('Template Headers:', headers);
+    console.log('Template Data:', exampleData);
+    
+    const template = `${headers.join(',')}\n${exampleData.join(',')}`;
     const blob = new Blob([template], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');

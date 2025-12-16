@@ -1,4 +1,4 @@
-import React, { useState, memo, useCallback } from 'react';
+import React, { useState, memo, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -7,44 +7,86 @@ import { Plus, Trash2 } from 'lucide-react';
 import { validateRequired, validateChassisNo, validateEngineNo } from '@/utils/validation';
 import { checkStockExistence } from '@/utils/db/stock';
 import usePurchaseStore from '@/stores/purchaseStore';
+import useSettingsStore from '@/stores/settingsStore';
 
 const PurchaseItemsTable = memo(() => {
   const items = usePurchaseStore((state) => state.items);
   const addItem = usePurchaseStore((state) => state.addItem);
   const updateItem = usePurchaseStore((state) => state.updateItem);
   const removeItem = usePurchaseStore((state) => state.removeItem);
+  const purchaseItemFields = useSettingsStore((state) => state.settings.purchaseItemFields || {});
+  const purchaseCustomFields = useSettingsStore((state) => state.settings.purchaseCustomFields || []);
   
-  const [newItem, setNewItem] = useState({
-    modelName: '', chassisNo: '', engineNo: '', colour: '', category: '', hsn: '', gst: '', price: '0'
-  });
+  const enabledFields = useMemo(() => {
+    const fieldOrder = ['modelName', 'chassisNo', 'engineNo', 'colour', 'category', 'price', 'hsn', 'gst', 'location'];
+    const fields = [];
+    
+    fieldOrder.forEach(key => {
+      const field = purchaseItemFields[key];
+      if (field && field.enabled) {
+        fields.push({ key, ...field });
+      }
+    });
+    
+    purchaseCustomFields.forEach(field => {
+      if (field.name) fields.push({ key: `custom_${field.id}`, label: field.name, mandatory: field.mandatory });
+    });
+    return fields;
+  }, [purchaseItemFields, purchaseCustomFields]);
+  
+  const initialNewItem = useMemo(() => {
+    const item = {};
+    enabledFields.forEach(f => {
+      item[f.key] = f.key === 'price' ? '0' : '';
+    });
+    return item;
+  }, [enabledFields]);
+  
+  const [newItem, setNewItem] = useState(initialNewItem);
   const { toast } = useToast();
 
   const handleAddItem = useCallback(async () => {
-    const errors = {};
-    if (!validateRequired(newItem.modelName)) errors.modelName = true;
-    if (!validateChassisNo(newItem.chassisNo)) errors.chassisNo = true;
-    if (!validateEngineNo(newItem.engineNo)) errors.engineNo = true;
-    if (!validateRequired(newItem.colour)) errors.colour = true;
-
-    if (Object.keys(errors).length > 0) {
-      toast({ title: "Validation Error", description: "Please fill Model, Chassis, Engine, and Colour fields correctly.", variant: "destructive" });
+    const errors = [];
+    enabledFields.forEach(field => {
+      if (field.mandatory && !validateRequired(newItem[field.key])) {
+        errors.push(field.label);
+      }
+    });
+    
+    if (errors.length > 0) {
+      toast({ title: "Validation Error", description: `Required: ${errors.join(', ')}`, variant: "destructive" });
+      return;
+    }
+    
+    if (newItem.chassisNo && !validateChassisNo(newItem.chassisNo)) {
+      toast({ title: "Validation Error", description: "Invalid Chassis No format.", variant: "destructive" });
+      return;
+    }
+    if (newItem.engineNo && !validateEngineNo(newItem.engineNo)) {
+      toast({ title: "Validation Error", description: "Invalid Engine No format.", variant: "destructive" });
       return;
     }
 
-    if (items.some(i => i.chassisNo === newItem.chassisNo.toUpperCase())) {
+    if (newItem.chassisNo && items.some(i => i.chassisNo === newItem.chassisNo.toUpperCase())) {
       toast({ title: "Duplicate Chassis No", description: "This chassis number is already in the current purchase list.", variant: "destructive" });
       return;
     }
 
-    const { exists, message } = await checkStockExistence(newItem.chassisNo.toUpperCase(), newItem.engineNo.toUpperCase());
-    if (exists) {
-      toast({ title: "Stock Alert", description: message, variant: "destructive" });
-      return;
+    if (newItem.chassisNo && newItem.engineNo) {
+      const { exists, message } = await checkStockExistence(newItem.chassisNo.toUpperCase(), newItem.engineNo.toUpperCase());
+      if (exists) {
+        toast({ title: "Stock Alert", description: message, variant: "destructive" });
+        return;
+      }
     }
 
-    addItem({ ...newItem, id: Date.now().toString(), chassisNo: newItem.chassisNo.toUpperCase(), engineNo: newItem.engineNo.toUpperCase() });
-    setNewItem({ modelName: '', chassisNo: '', engineNo: '', colour: '', category: '', hsn: '', gst: '', price: '0' });
-  }, [newItem, items, addItem, toast]);
+    const itemToAdd = { ...newItem, id: Date.now().toString() };
+    if (itemToAdd.chassisNo) itemToAdd.chassisNo = itemToAdd.chassisNo.toUpperCase();
+    if (itemToAdd.engineNo) itemToAdd.engineNo = itemToAdd.engineNo.toUpperCase();
+    
+    addItem(itemToAdd);
+    setNewItem(initialNewItem);
+  }, [newItem, items, addItem, toast, enabledFields, initialNewItem]);
 
   const handleRemoveItem = useCallback((itemId) => {
     removeItem(itemId);
@@ -71,28 +113,27 @@ const PurchaseItemsTable = memo(() => {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Model Name</TableHead>
-            <TableHead>Chassis No</TableHead>
-            <TableHead>Engine No</TableHead>
-            <TableHead>Colour</TableHead>
-            <TableHead>Category</TableHead>
-            <TableHead>Price</TableHead>
-            <TableHead>HSN</TableHead>
-            <TableHead>GST%</TableHead>
+            {enabledFields.map(field => (
+              <TableHead key={field.key}>
+                {field.label}{field.mandatory && <span className="text-red-500">*</span>}
+              </TableHead>
+            ))}
             <TableHead>Action</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {items.map((item) => (
             <TableRow key={item.id}>
-              <TableCell><Input value={item.modelName} onChange={(e) => handleItemInputChange(e, item.id, 'modelName')} placeholder="Model" /></TableCell>
-              <TableCell><Input value={item.chassisNo} onChange={(e) => handleItemInputChange(e, item.id, 'chassisNo')} placeholder="Chassis" /></TableCell>
-              <TableCell><Input value={item.engineNo} onChange={(e) => handleItemInputChange(e, item.id, 'engineNo')} placeholder="Engine" /></TableCell>
-              <TableCell><Input value={item.colour} onChange={(e) => handleItemInputChange(e, item.id, 'colour')} placeholder="Colour" /></TableCell>
-              <TableCell><Input value={item.category || ''} onChange={(e) => handleItemInputChange(e, item.id, 'category')} placeholder="Category" /></TableCell>
-              <TableCell><Input type="number" value={item.price} onChange={(e) => handleItemInputChange(e, item.id, 'price')} placeholder="0" /></TableCell>
-              <TableCell><Input value={item.hsn || ''} onChange={(e) => handleItemInputChange(e, item.id, 'hsn')} placeholder="HSN Code" /></TableCell>
-              <TableCell><Input value={item.gst || ''} onChange={(e) => handleItemInputChange(e, item.id, 'gst')} placeholder="GST %" /></TableCell>
+              {enabledFields.map(field => (
+                <TableCell key={field.key}>
+                  <Input
+                    type={field.key === 'price' ? 'number' : 'text'}
+                    value={item[field.key] || ''}
+                    onChange={(e) => handleItemInputChange(e, item.id, field.key)}
+                    placeholder={field.label}
+                  />
+                </TableCell>
+              ))}
               <TableCell>
                 <Button type="button" size="icon" variant="ghost" onClick={() => handleRemoveItem(item.id)} className="text-red-500">
                   <Trash2 className="w-4 h-4" />
@@ -101,14 +142,17 @@ const PurchaseItemsTable = memo(() => {
             </TableRow>
           ))}
           <TableRow>
-            <TableCell><Input value={newItem.modelName} onChange={(e) => handleNewItemInputChange(e, 'modelName')} placeholder="Model" /></TableCell>
-            <TableCell><Input value={newItem.chassisNo} onChange={(e) => handleNewItemInputChange(e, 'chassisNo')} placeholder="Chassis" /></TableCell>
-            <TableCell><Input value={newItem.engineNo} onChange={(e) => handleNewItemInputChange(e, 'engineNo')} placeholder="Engine" /></TableCell>
-            <TableCell><Input value={newItem.colour} onChange={(e) => handleNewItemInputChange(e, 'colour')} placeholder="Colour" /></TableCell>
-            <TableCell><Input value={newItem.category} onChange={(e) => handleNewItemInputChange(e, 'category')} placeholder="Category" /></TableCell>
-            <TableCell><Input type="number" value={newItem.price} onChange={(e) => handleNewItemInputChange(e, 'price')} placeholder="0" /></TableCell>
-            <TableCell><Input value={newItem.hsn} onChange={(e) => handleNewItemInputChange(e, 'hsn')} placeholder="HSN Code" /></TableCell>
-            <TableCell><Input value={newItem.gst} onChange={(e) => handleNewItemInputChange(e, 'gst')} placeholder="GST %" /></TableCell>
+            {enabledFields.map(field => (
+              <TableCell key={field.key}>
+                <Input
+                  type={field.key === 'price' ? 'number' : 'text'}
+                  value={newItem[field.key] || ''}
+                  onChange={(e) => handleNewItemInputChange(e, field.key)}
+                  placeholder={field.label}
+                  className={field.mandatory ? 'border-red-300' : ''}
+                />
+              </TableCell>
+            ))}
             <TableCell>
               <Button type="button" size="icon" onClick={handleAddItem}>
                 <Plus className="w-4 h-4" />

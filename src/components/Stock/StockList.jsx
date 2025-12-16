@@ -11,20 +11,26 @@ import { useToast } from '@/components/ui/use-toast';
 import { exportToExcel } from '@/utils/excel';
 import { formatDate, getStockDays, getStockDaysClass, isDateInRange } from '@/utils/dateUtils';
 import { getStock as fetchStockFromDb } from '@/utils/db/stock';
+import { getPurchases } from '@/utils/db/purchases';
 import { PaginationControls } from '@/components/ui/pagination';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
+import useSettingsStore from '@/stores/settingsStore';
 
 const PAGE_SIZE = 50;
 
 const StockList = () => {
   const { toast } = useToast();
+  const purchaseItemFields = useSettingsStore((state) => state.settings.purchaseItemFields || {});
+  const purchaseCustomFields = useSettingsStore((state) => state.settings.purchaseCustomFields || []);
+  const isLocationEnabled = purchaseItemFields.location?.enabled || false;
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useLocalStorage('stockSearchTerm', '');
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
   const [filters, setFilters] = useState({
     aging: 'all',
-    model: 'all'
+    model: 'all',
+    location: 'all'
   });
 
   const { data: stockData, isLoading } = useQuery({
@@ -37,11 +43,32 @@ const StockList = () => {
     placeholderData: (previousData) => previousData,
   });
 
-  const { allStock, modelNames } = useMemo(() => {
+  const { data: purchasesData } = useQuery({
+    queryKey: ['purchasesForStock'],
+    queryFn: () => getPurchases({ pageSize: 10000 }),
+    staleTime: 30 * 60 * 1000,
+  });
+
+  const { allStock, modelNames, locations } = useMemo(() => {
     const stock = stockData?.data ?? [];
-    const models = [...new Set(stock.map(item => item.model_name))].sort();
-    return { allStock: stock, modelNames: models };
-  }, [stockData]);
+    const purchases = purchasesData?.data ?? [];
+    
+    // Merge custom fields from purchases into stock
+    const enrichedStock = stock.map(stockItem => {
+      const matchingPurchase = purchases.find(p => 
+        p.items?.some(item => item.chassisNo === stockItem.chassis_no)
+      );
+      if (matchingPurchase) {
+        const matchingItem = matchingPurchase.items.find(item => item.chassisNo === stockItem.chassis_no);
+        return { ...stockItem, ...matchingItem };
+      }
+      return stockItem;
+    });
+    
+    const models = [...new Set(enrichedStock.map(item => item.model_name))].sort();
+    const locs = [...new Set(enrichedStock.map(item => item.location).filter(Boolean))].sort();
+    return { allStock: enrichedStock, modelNames: models, locations: locs };
+  }, [stockData, purchasesData]);
   
   const filteredStock = useMemo(() => {
     let filtered = allStock;
@@ -78,6 +105,10 @@ const StockList = () => {
     
     if (filters.model !== 'all') {
         filtered = filtered.filter(item => item.model_name === filters.model);
+    }
+    
+    if (filters.location !== 'all') {
+        filtered = filtered.filter(item => item.location === filters.location);
     }
     return filtered;
   }, [allStock, debouncedSearchTerm, filters]);
@@ -117,16 +148,28 @@ const StockList = () => {
       toast({ title: "No data to export", variant: "destructive" });
       return;
     }
-    const exportData = filteredStock.map(item => ({
-      'Model Name': item.model_name,
-      'Chassis No': item.chassis_no,
-      'Engine No': item.engine_no,
-      'Colour': item.colour,
-      'Category': item.category || 'N/A',
-      'Stock Days': getStockDays(item.purchase_date),
-      'Purchase Date': formatDate(item.purchase_date),
-      'Price': item.price
-    }));
+    const exportData = filteredStock.map(item => {
+      const data = {
+        'Model Name': item.model_name,
+        'Chassis No': item.chassis_no,
+        'Engine No': item.engine_no,
+        'Colour': item.colour,
+        'Category': item.category || 'N/A',
+      };
+      if (isLocationEnabled) {
+        data['Location'] = item.location || 'N/A';
+      }
+      data['Stock Days'] = getStockDays(item.purchase_date);
+      data['Purchase Date'] = formatDate(item.purchase_date);
+      data['Price'] = item.price;
+      // Add custom fields
+      purchaseCustomFields.forEach(field => {
+        if (field.name) {
+          data[field.name] = item[`custom_${field.id}`] || 'N/A';
+        }
+      });
+      return data;
+    });
     exportToExcel(exportData, 'complete_stock_list');
     toast({ title: "Export Successful", description: "Complete stock data has been exported." });
   };
@@ -166,6 +209,15 @@ const StockList = () => {
                         {modelNames.map(name => <SelectItem key={name} value={name}>{name}</SelectItem>)}
                     </SelectContent>
                 </Select>
+                {isLocationEnabled && (
+                  <Select value={filters.location} onValueChange={(value) => setFilters(prev => ({...prev, location: value}))}>
+                      <SelectTrigger className="w-[180px]"><SelectValue placeholder="Filter by location" /></SelectTrigger>
+                      <SelectContent>
+                          <SelectItem value="all">All Locations</SelectItem>
+                          {locations.map(loc => <SelectItem key={loc} value={loc}>{loc}</SelectItem>)}
+                      </SelectContent>
+                  </Select>
+                )}
               <Button variant="outline" onClick={handleExport}><Download className="mr-2 h-4 w-4" /> Export</Button>
             </div>
           </div>
@@ -180,13 +232,15 @@ const StockList = () => {
                   <TableHead>Engine No</TableHead>
                   <TableHead>Colour</TableHead>
                   <TableHead>Category</TableHead>
+                  {isLocationEnabled && <TableHead>Location</TableHead>}
+                  {purchaseCustomFields.map(field => field.name && <TableHead key={field.id}>{field.name}</TableHead>)}
                   <TableHead>Stock Days</TableHead>
                   <TableHead>Price</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading ? (
-                    <TableRow><TableCell colSpan={7} className="text-center h-24">Loading stock...</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={7 + (isLocationEnabled ? 1 : 0) + purchaseCustomFields.length} className="text-center h-24">Loading stock...</TableCell></TableRow>
                 ) : paginatedStock.length > 0 ? paginatedStock.map((item) => {
                   const days = getStockDays(item.purchase_date);
                   const daysClass = getStockDaysClass(days);
@@ -197,13 +251,15 @@ const StockList = () => {
                       <TableCell>{item.engine_no}</TableCell>
                       <TableCell>{item.colour}</TableCell>
                       <TableCell>{item.category || 'N/A'}</TableCell>
+                      {isLocationEnabled && <TableCell>{item.location || 'N/A'}</TableCell>}
+                      {purchaseCustomFields.map(field => field.name && <TableCell key={field.id}>{item[`custom_${field.id}`] || 'N/A'}</TableCell>)}
                       <TableCell className={daysClass}>{days} days</TableCell>
                       <TableCell>₹{parseFloat(item.price || 0).toFixed(2)}</TableCell>
                     </TableRow>
                   );
                 }) : (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center h-24">No stock found.</TableCell>
+                    <TableCell colSpan={7 + (isLocationEnabled ? 1 : 0) + purchaseCustomFields.length} className="text-center h-24">No stock found.</TableCell>
                   </TableRow>
                 )}
               </TableBody>

@@ -7,7 +7,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Save, Plus, Trash2 } from 'lucide-react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
-const InvoiceConfig = ({ settings, handleCompanyChange, handleCheckboxChange, handleNonRegFieldChange, handleRegFieldChange, handleCustomFieldChange, addCustomField, removeCustomField, handleSave, isSaving, handleWorkshopSettingsChange, handleExtraChargeChange, addExtraCharge, removeExtraCharge }) => {
+const InvoiceConfig = ({ settings, handleCompanyChange, handleCheckboxChange, handleNonRegFieldChange, handleRegFieldChange, handleCustomFieldChange, addCustomField, removeCustomField, handleSave, isSaving, handleWorkshopSettingsChange, handleExtraChargeChange, addExtraCharge, removeExtraCharge, handlePurchaseItemFieldChange, handlePurchaseCustomFieldChange, addPurchaseCustomField, removePurchaseCustomField }) => {
   if (!settings) {
     return <div>Loading settings...</div>;
   }
@@ -17,6 +17,8 @@ const InvoiceConfig = ({ settings, handleCompanyChange, handleCheckboxChange, ha
   const nonRegFields = settings.nonRegisteredCustomerFields || {};
   const regFields = settings.registeredCustomerFields || {};
   const customFields = settings.customFields || [];
+  const purchaseItemFields = settings.purchaseItemFields || {};
+  const purchaseCustomFields = settings.purchaseCustomFields || [];
 
   const renderFieldConfig = (title, fields, handler) => (
     <Card>
@@ -100,6 +102,24 @@ const InvoiceConfig = ({ settings, handleCompanyChange, handleCheckboxChange, ha
               <Plus className="w-4 h-4 mr-2" /> Add Extra Charge
             </Button>
           )}
+        </CardContent>
+      </Card>
+
+      {renderFieldConfig("Vehicle Purchase Item Fields", purchaseItemFields, handlePurchaseItemFieldChange)}
+
+      <Card>
+        <CardHeader><CardTitle>Custom Purchase Item Fields</CardTitle></CardHeader>
+        <CardContent className="space-y-2">
+          {purchaseCustomFields.map(field => (
+            <div key={field.id} className="flex items-center gap-2">
+              <Input value={field.name} onChange={e => handlePurchaseCustomFieldChange(field.id, e.target.value)} placeholder="Enter field name" />
+              <label className="flex items-center gap-2">
+                <Checkbox checked={field.mandatory} onCheckedChange={checked => handlePurchaseCustomFieldChange(field.id, field.name, checked)} /> Mandatory
+              </label>
+              <Button variant="destructive" size="icon" onClick={() => removePurchaseCustomField(field.id)}><Trash2 className="w-4 h-4" /></Button>
+            </div>
+          ))}
+          {purchaseCustomFields.length < 10 && <Button onClick={addPurchaseCustomField}><Plus className="w-4 h-4 mr-2" /> Add Custom Field</Button>}
         </CardContent>
       </Card>
 

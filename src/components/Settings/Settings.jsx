@@ -96,6 +96,31 @@ const Settings = () => {
     handleWorkshopSettingsChange('extra_charges', newCharges);
   };
 
+  const handlePurchaseItemFieldChange = (key, prop, value) => {
+    const newFields = {
+      ...settings.purchaseItemFields,
+      [key]: { ...settings.purchaseItemFields[key], [prop]: value },
+    };
+    updateSettings({ purchaseItemFields: newFields });
+  };
+
+  const handlePurchaseCustomFieldChange = (id, name, mandatory) => {
+    const newCustomFields = settings.purchaseCustomFields.map(field =>
+      field.id === id ? { ...field, name: typeof name === 'string' ? name : field.name, mandatory: typeof mandatory === 'boolean' ? mandatory : field.mandatory } : field
+    );
+    updateSettings({ purchaseCustomFields: newCustomFields });
+  };
+
+  const addPurchaseCustomField = () => {
+    const newCustomFields = [...(settings.purchaseCustomFields || []), { id: uuidv4(), name: '', mandatory: false }];
+    updateSettings({ purchaseCustomFields: newCustomFields });
+  };
+
+  const removePurchaseCustomField = (id) => {
+    const newCustomFields = settings.purchaseCustomFields.filter(field => field.id !== id);
+    updateSettings({ purchaseCustomFields: newCustomFields });
+  };
+
   const handleSave = async () => {
     const validationErrors = validateCompanyDetails(settings);
     if (Object.keys(validationErrors).length > 0) {
@@ -110,6 +135,7 @@ const Settings = () => {
     setErrors({});
     await saveSettings();
     if (!useSettingsStore.getState().error) {
+      await fetchSettings(); // Refresh settings from database
       toast({ title: 'Success', description: 'Settings saved successfully.' });
     }
   };
@@ -169,6 +195,10 @@ const Settings = () => {
             handleExtraChargeChange={handleExtraChargeChange}
             addExtraCharge={addExtraCharge}
             removeExtraCharge={removeExtraCharge}
+            handlePurchaseItemFieldChange={handlePurchaseItemFieldChange}
+            handlePurchaseCustomFieldChange={handlePurchaseCustomFieldChange}
+            addPurchaseCustomField={addPurchaseCustomField}
+            removePurchaseCustomField={removePurchaseCustomField}
           />
         </TabsContent>
         <TabsContent value="workshop">

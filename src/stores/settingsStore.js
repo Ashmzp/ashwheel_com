@@ -12,6 +12,20 @@ const defaultCustomerFields = {
   salesPerson: { label: 'Sales Person', enabled: false, mandatory: false },
 };
 
+const defaultPurchaseItemFields = {
+  modelName: { label: 'Model Name', enabled: true, mandatory: true },
+  chassisNo: { label: 'Chassis No', enabled: true, mandatory: true },
+  engineNo: { label: 'Engine No', enabled: true, mandatory: true },
+  colour: { label: 'Colour', enabled: true, mandatory: false },
+  category: { label: 'Category', enabled: true, mandatory: false },
+  price: { label: 'Price', enabled: true, mandatory: true },
+  hsn: { label: 'HSN', enabled: true, mandatory: false },
+  gst: { label: 'GST%', enabled: true, mandatory: false },
+  location: { label: 'Location', enabled: false, mandatory: false },
+};
+
+
+
 const DEFAULT_SETTINGS = {
   companyName: '',
   gstNo: '',
@@ -34,6 +48,8 @@ const DEFAULT_SETTINGS = {
   nonRegisteredInvoicePrefix: 'NRINV-',
   jobCardInvoicePrefix: 'JC-',
   fy_counters: {},
+  purchaseItemFields: { ...defaultPurchaseItemFields },
+  purchaseCustomFields: [],
   nonRegisteredCustomerFields: { ...defaultCustomerFields },
   registeredCustomerFields: { ...defaultCustomerFields },
   customFields: [],
@@ -90,6 +106,16 @@ export const useSettingsStore = create(
         set({ isLoading: true, error: null });
         try {
           const data = await getSettings();
+          // Migrate old settings to include purchaseItemFields if missing
+          if (data && !data.purchaseItemFields) {
+            data.purchaseItemFields = { ...defaultPurchaseItemFields };
+          }
+          if (data && data.purchaseItemFields && !data.purchaseItemFields.location) {
+            data.purchaseItemFields.location = { label: 'Location', enabled: false, mandatory: false };
+          }
+          if (data && !data.purchaseCustomFields) {
+            data.purchaseCustomFields = [];
+          }
           set({ settings: data || DEFAULT_SETTINGS, isLoading: false });
         } catch (error) {
           console.error('Error fetching settings:', error);
