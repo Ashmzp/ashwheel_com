@@ -107,20 +107,18 @@ export const useSettingsStore = create(
         try {
           const data = await getSettings();
           
-          // 🔥 FORCE ENSURE purchaseItemFields with location
-          if (data) {
-            if (!data.purchaseItemFields) {
-              data.purchaseItemFields = { ...defaultPurchaseItemFields };
-            } else if (!data.purchaseItemFields.location) {
-              data.purchaseItemFields.location = { label: 'Location', enabled: false, mandatory: false };
-            }
-            
-            if (!data.purchaseCustomFields) {
-              data.purchaseCustomFields = [];
-            }
-          }
+          // 🔥 Deep merge with defaults
+          const settings = {
+            ...DEFAULT_SETTINGS,
+            ...data,
+            purchaseItemFields: {
+              ...defaultPurchaseItemFields,
+              ...(data?.purchaseItemFields || {}),
+            },
+            purchaseCustomFields: data?.purchaseCustomFields || [],
+          };
           
-          set({ settings: data || DEFAULT_SETTINGS, isLoading: false });
+          set({ settings, isLoading: false });
         } catch (error) {
           console.error('Error fetching settings:', error);
           set({ error: error.message, isLoading: false });
@@ -149,12 +147,14 @@ export const useSettingsStore = create(
       },
       updateSettings: (update) => {
         set((state) => {
-          const newSettings = { ...state.settings, ...update };
-          
-          // 🔥 ALWAYS preserve location field
-          if (newSettings.purchaseItemFields && !newSettings.purchaseItemFields.location) {
-            newSettings.purchaseItemFields.location = { label: 'Location', enabled: false, mandatory: false };
-          }
+          const newSettings = {
+            ...state.settings,
+            ...update,
+            purchaseItemFields: {
+              ...state.settings.purchaseItemFields,
+              ...update.purchaseItemFields,
+            },
+          };
           
           return { settings: newSettings };
         });
@@ -166,15 +166,9 @@ export const useSettingsStore = create(
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ settings: state.settings }),
       
-      // 🔥 MERGE STRATEGY: Always ensure location field
+      // 🔥 MERGE STRATEGY: Always trust currentState (DB-loaded)
       merge: (persistedState, currentState) => {
-        const merged = { ...currentState, ...persistedState };
-        
-        if (merged.settings?.purchaseItemFields && !merged.settings.purchaseItemFields.location) {
-          merged.settings.purchaseItemFields.location = { label: 'Location', enabled: false, mandatory: false };
-        }
-        
-        return merged;
+        return currentState;
       },
     }
   )
