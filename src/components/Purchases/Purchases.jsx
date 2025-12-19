@@ -23,51 +23,77 @@ const Purchases = () => {
   };
 
   const handleSavePurchase = async (purchaseData) => {
-    const isUpdating = !!selectedPurchase;
+    try {
+      console.log('handleSavePurchase called with:', purchaseData);
+      const isUpdating = !!selectedPurchase;
 
-    if(isUpdating) {
-        // Remove old items from stock
-        const oldPurchase = selectedPurchase;
-        if (oldPurchase.items) {
-          const oldChassisNos = oldPurchase.items.map(item => item.chassisNo);
-          await deleteStockByChassis(oldChassisNos);
-        }
+      if(isUpdating) {
+          // Remove old items from stock
+          const oldPurchase = selectedPurchase;
+          if (oldPurchase.items && oldPurchase.items.length > 0) {
+            const oldChassisNos = oldPurchase.items.map(item => item.chassisNo).filter(Boolean);
+            if (oldChassisNos.length > 0) {
+              await deleteStockByChassis(oldChassisNos);
+            }
+          }
+      }
+      
+      // Save purchase
+      console.log('Saving purchase to database...');
+      const savedPurchase = await savePurchaseToDb(purchaseData);
+      console.log('Purchase saved:', savedPurchase);
+      
+      // Add new items to stock
+      if (purchaseData.items && purchaseData.items.length > 0) {
+          const validItems = purchaseData.items.filter(item => 
+            item.modelName && item.chassisNo && item.price
+          );
+          
+          if (validItems.length > 0) {
+            const newStockItems = validItems.map(item => ({
+              id: uuidv4(),
+              purchase_id: savedPurchase.id,
+              model_name: item.modelName,
+              chassis_no: item.chassisNo,
+              engine_no: item.engineNo || '',
+              colour: item.colour || '',
+              hsn: item.hsn || '',
+              gst: item.gst || 0,
+              price: item.price,
+              purchase_date: savedPurchase.invoice_date,
+              user_id: user.id,
+            }));
+            console.log('Adding stock items:', newStockItems);
+            await addStock(newStockItems);
+          }
+      }
+      
+      setCurrentView('list');
+      setSelectedPurchase(null);
+    } catch (error) {
+      console.error('Error in handleSavePurchase:', error);
+      throw error;
     }
-    
-    // Save purchase
-    const savedPurchase = await savePurchaseToDb(purchaseData);
-    
-    // Add new items to stock
-    if (purchaseData.items) {
-        const newStockItems = purchaseData.items.map(item => ({
-          id: uuidv4(),
-          purchase_id: savedPurchase.id,
-          model_name: item.modelName,
-          chassis_no: item.chassisNo,
-          engine_no: item.engineNo,
-          colour: item.colour,
-          hsn: item.hsn,
-          gst: item.gst,
-          price: item.price,
-          purchase_date: savedPurchase.invoice_date,
-          user_id: user.id,
-        }));
-        await addStock(newStockItems);
-    }
-    
-    setCurrentView('list');
-    setSelectedPurchase(null);
   };
 
   const handleDeletePurchase = async (purchaseId) => {
-    const purchases = await getPurchases();
-    const purchaseToDelete = purchases.find(p => p.id === purchaseId);
-    if(purchaseToDelete && purchaseToDelete.items){
-        const chassisNosToDelete = purchaseToDelete.items.map(item => item.chassis_no);
-        await deleteStockByChassis(chassisNosToDelete);
+    try {
+      const { data: purchases } = await getPurchases();
+      const purchaseToDelete = purchases.find(p => p.id === purchaseId);
+      if(purchaseToDelete && purchaseToDelete.items && purchaseToDelete.items.length > 0){
+          const chassisNosToDelete = purchaseToDelete.items
+            .map(item => item.chassisNo || item.chassis_no)
+            .filter(Boolean);
+          if (chassisNosToDelete.length > 0) {
+            await deleteStockByChassis(chassisNosToDelete);
+          }
+      }
+      await deletePurchaseFromDb(purchaseId);
+      setCurrentView('list');
+    } catch (error) {
+      console.error('Error deleting purchase:', error);
+      throw error;
     }
-    await deletePurchaseFromDb(purchaseId);
-    setCurrentView('list'); // Refresh list by re-rendering
   };
 
   const handleCancel = () => {

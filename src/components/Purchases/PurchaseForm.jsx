@@ -54,31 +54,37 @@ const PurchaseForm = ({ onSave, onCancel }) => {
 
   const getNextSerialNo = useCallback(async () => {
     if (id) return; 
-    const { data, error } = await supabase
-      .from('purchases')
-      .select('serial_no')
-      .eq('user_id', user.id)
-      .order('serial_no', { ascending: false })
-      .limit(1);
+    try {
+      const { data, error } = await supabase
+        .from('purchases')
+        .select('serial_no')
+        .eq('user_id', user.id)
+        .order('serial_no', { ascending: false })
+        .limit(1);
 
-    if (error && error.code !== 'PGRST116') { 
-      console.error('Error fetching last serial number:', error);
+      if (error && error.code !== 'PGRST116') { 
+        console.error('Error fetching last serial number:', error);
+        setFormData({ serial_no: 1 });
+        return;
+      }
+      const nextSerial = data && data.length > 0 ? (data[0].serial_no || 0) + 1 : 1;
+      console.log('Next serial number:', nextSerial);
+      setFormData({ serial_no: nextSerial });
+    } catch (error) {
+      console.error('Error in getNextSerialNo:', error);
       setFormData({ serial_no: 1 });
-      return;
     }
-    const nextSerial = data && data.length > 0 ? (data[0].serial_no || 0) + 1 : 1;
-    setFormData({ serial_no: nextSerial });
   }, [setFormData, user.id, id]);
 
   useEffect(() => {
-    if (!firstLoadRef.current) {
+    if (!firstLoadRef.current && user?.id) {
       firstLoadRef.current = true;
       
       if (!id) {
         getNextSerialNo();
       }
     }
-  }, []);
+  }, [user?.id, getNextSerialNo, id]);
 
   const handlePartyNameChange = (e) => {
     const term = e.target.value;
@@ -198,17 +204,31 @@ const PurchaseForm = ({ onSave, onCancel }) => {
     if (!validateRequired(partyName)) newErrors.partyName = 'Party name is required';
     if (!items || items.length === 0) newErrors.items = 'At least one item is required';
     
+    // Validate items have required fields
+    if (items && items.length > 0) {
+      const invalidItems = items.filter(item => 
+        !item.modelName || !item.chassisNo || !item.price
+      );
+      if (invalidItems.length > 0) {
+        newErrors.items = 'All items must have Model Name, Chassis No, and Price';
+      }
+    }
+    
     if (validateRequired(invoiceNo) && !id) {
-        const { data: existingPurchases, error } = await supabase
-            .from('purchases')
-            .select('id')
-            .eq('user_id', user.id)
-            .eq('invoice_no', invoiceNo);
+        try {
+          const { data: existingPurchases, error } = await supabase
+              .from('purchases')
+              .select('id')
+              .eq('user_id', user.id)
+              .eq('invoice_no', invoiceNo);
 
-        if (error) {
-            console.error("Error checking for existing invoice:", error);
-        } else if (existingPurchases && existingPurchases.length > 0) {
-            newErrors.invoiceNo = 'This invoice number already exists for you.';
+          if (error) {
+              console.error("Error checking for existing invoice:", error);
+          } else if (existingPurchases && existingPurchases.length > 0) {
+              newErrors.invoiceNo = 'This invoice number already exists for you.';
+          }
+        } catch (error) {
+          console.error("Validation error:", error);
         }
     }
 
@@ -224,17 +244,30 @@ const PurchaseForm = ({ onSave, onCancel }) => {
     }
     setIsSubmitting(true);
     try {
+      console.log('Submitting purchase with data:', {
+        id: id || crypto.randomUUID(),
+        serial_no,
+        invoiceDate,
+        invoiceNo,
+        partyName,
+        items: items || [],
+        created_at: created_at || new Date().toISOString(),
+      });
+      
       const purchaseData = {
         id: id || crypto.randomUUID(),
         serial_no,
         invoiceDate,
         invoiceNo,
         partyName,
-        items,
+        items: items || [],
         created_at: created_at || new Date().toISOString(),
       };
+      
       await onSave(purchaseData);
+      toast({ title: "Success", description: "Purchase saved successfully!" });
     } catch (error) {
+      console.error('Form submit error:', error);
       toast({ title: "Error", description: `Failed to save purchase. ${error.message}`, variant: "destructive" });
     } finally {
       setIsSubmitting(false);
