@@ -60,8 +60,8 @@ export const getPurchases = async ({ page = 1, pageSize = 10, searchTerm = '', s
                   return true;
               }
               return (purchase.items || []).some(item => 
-                  (item.chassisNo && item.chassisNo.toLowerCase().includes(sanitizedSearch)) ||
-                  (item.engineNo && item.engineNo.toLowerCase().includes(sanitizedSearch))
+                  (item.chassis_no && item.chassis_no.toLowerCase().includes(sanitizedSearch)) ||
+                  (item.engine_no && item.engine_no.toLowerCase().includes(sanitizedSearch))
               );
           });
           return { data: filteredData, count: filteredData.length };
@@ -107,25 +107,38 @@ export const savePurchase = async (purchaseData) => {
         serialNo = lastPurchase && lastPurchase.length > 0 ? (lastPurchase[0].serial_no + 1) : 1;
       }
 
+      // Normalize items to snake_case for DB
+      const normalizedItems = (purchaseData.items || []).map(item => ({
+        model_name: item.modelName,
+        chassis_no: item.chassisNo,
+        engine_no: item.engineNo,
+        colour: item.colour || '',
+        category: item.category || null,
+        price: Number(item.price || 0),
+        hsn: item.hsn || '8711',
+        gst_rate: Number(item.gst || 28)
+      }));
+
       const payload = {
-          id: isUpdating ? purchaseData.id : uuidv4(),
           user_id: userId,
           serial_no: serialNo,
           invoice_date: purchaseData.invoiceDate,
           invoice_no: purchaseData.invoiceNo,
           party_name: purchaseData.partyName,
-          items: purchaseData.items || [],
-          created_at: isUpdating ? purchaseData.created_at : new Date().toISOString(),
-          category: purchaseData.items?.[0]?.category || null,
+          items: normalizedItems,
+          category: normalizedItems[0]?.category || null,
       };
+
+      if (isUpdating) {
+        payload.id = purchaseData.id;
+      }
 
       console.log('Saving purchase with payload:', payload);
 
-      const { data, error } = await supabase
-          .from('purchases')
-          .upsert(payload, { onConflict: 'id' })
-          .select()
-          .single();
+      let query = supabase.from('purchases');
+      const { data, error } = isUpdating
+        ? await query.update(payload).eq('id', purchaseData.id).select().single()
+        : await query.insert(payload).select().single();
 
       if (error) {
           console.error('Supabase error:', error);
