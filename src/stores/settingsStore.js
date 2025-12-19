@@ -106,16 +106,20 @@ export const useSettingsStore = create(
         set({ isLoading: true, error: null });
         try {
           const data = await getSettings();
-          // Migrate old settings to include purchaseItemFields if missing
-          if (data && !data.purchaseItemFields) {
-            data.purchaseItemFields = { ...defaultPurchaseItemFields };
+          
+          // 🔥 FORCE ENSURE purchaseItemFields with location
+          if (data) {
+            if (!data.purchaseItemFields) {
+              data.purchaseItemFields = { ...defaultPurchaseItemFields };
+            } else if (!data.purchaseItemFields.location) {
+              data.purchaseItemFields.location = { label: 'Location', enabled: false, mandatory: false };
+            }
+            
+            if (!data.purchaseCustomFields) {
+              data.purchaseCustomFields = [];
+            }
           }
-          if (data && data.purchaseItemFields && !data.purchaseItemFields.location) {
-            data.purchaseItemFields.location = { label: 'Location', enabled: false, mandatory: false };
-          }
-          if (data && !data.purchaseCustomFields) {
-            data.purchaseCustomFields = [];
-          }
+          
           set({ settings: data || DEFAULT_SETTINGS, isLoading: false });
         } catch (error) {
           console.error('Error fetching settings:', error);
@@ -125,20 +129,53 @@ export const useSettingsStore = create(
       saveSettings: async () => {
         set({ isSaving: true, error: null });
         try {
-          await saveSettingsToDB(get().settings);
+          const settings = get().settings;
+          
+          // 🔥 ENSURE location field before saving
+          if (settings.purchaseItemFields && !settings.purchaseItemFields.location) {
+            settings.purchaseItemFields.location = { label: 'Location', enabled: false, mandatory: false };
+          }
+          
+          await saveSettingsToDB(settings);
+          
+          // 🚀 REFRESH from database after save
+          await get().fetchSettings();
+          
           set({ isSaving: false });
         } catch (error) {
           console.error('Error saving settings:', error);
           set({ error: error.message, isSaving: false });
         }
       },
-      updateSettings: (update) => set((state) => ({ settings: { ...state.settings, ...update } })),
+      updateSettings: (update) => {
+        set((state) => {
+          const newSettings = { ...state.settings, ...update };
+          
+          // 🔥 ALWAYS preserve location field
+          if (newSettings.purchaseItemFields && !newSettings.purchaseItemFields.location) {
+            newSettings.purchaseItemFields.location = { label: 'Location', enabled: false, mandatory: false };
+          }
+          
+          return { settings: newSettings };
+        });
+      },
       resetSettings: () => set({ settings: DEFAULT_SETTINGS, isLoading: false }),
     }),
     {
       name: 'settings-storage',
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ settings: state.settings }),
+      
+      // 🔥 MERGE STRATEGY: Always ensure location field
+      merge: (persistedState, currentState) => {
+        const merged = { ...currentState, ...persistedState };
+        
+        if (merged.settings?.purchaseItemFields && !merged.settings.purchaseItemFields.location) {
+          merged.settings.purchaseItemFields.location = { label: 'Location', enabled: false, mandatory: false };
+        }
+        
+        return merged;
+      },
     }
   )
 );

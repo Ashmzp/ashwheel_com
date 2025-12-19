@@ -131,7 +131,41 @@ export const getSettings = async () => {
     };
     
     if (error && error.code === 'PGRST116') { // No settings found for user, create them.
-        const defaultSettingsForNewUser = { user_id: userId, company_name: defaults.companyName, gst_no: defaults.gstNo, pin_code: defaults.pinCode, registered_invoice_prefix: defaults.registeredInvoicePrefix, non_registered_invoice_prefix: defaults.nonRegisteredInvoicePrefix, workshop_settings: defaults.workshop_settings, booking_settings: defaults.booking_settings, fy_counters: defaults.fy_counters, "nonRegisteredCustomerFields": defaults.nonRegisteredCustomerFields, "registeredCustomerFields": defaults.registeredCustomerFields, custom_fields: defaults.customFields, enable_extra_charges: defaults.enable_extra_charges, extra_charges_mandatory_for_unregistered: defaults.extra_charges_mandatory_for_unregistered, bank_details: defaults.bank_details, company_logo_url: defaults.company_logo_url, upi_qr_code_url: defaults.upi_qr_code_url, terms_and_conditions: defaults.terms_and_conditions };
+        // 🔥 DEFAULT PURCHASE ITEM FIELDS WITH LOCATION
+        const defaultPurchaseItemFields = {
+          modelName: { label: 'Model Name', enabled: true, mandatory: true },
+          chassisNo: { label: 'Chassis No', enabled: true, mandatory: true },
+          engineNo: { label: 'Engine No', enabled: true, mandatory: true },
+          colour: { label: 'Colour', enabled: true, mandatory: false },
+          category: { label: 'Category', enabled: true, mandatory: false },
+          price: { label: 'Price', enabled: true, mandatory: true },
+          hsn: { label: 'HSN', enabled: true, mandatory: false },
+          gst: { label: 'GST%', enabled: true, mandatory: false },
+          location: { label: 'Location', enabled: false, mandatory: false },
+        };
+        
+        const defaultSettingsForNewUser = { 
+          user_id: userId, 
+          company_name: defaults.companyName, 
+          gst_no: defaults.gstNo, 
+          pin_code: defaults.pinCode, 
+          registered_invoice_prefix: defaults.registeredInvoicePrefix, 
+          non_registered_invoice_prefix: defaults.nonRegisteredInvoicePrefix, 
+          workshop_settings: defaults.workshop_settings, 
+          booking_settings: defaults.booking_settings, 
+          fy_counters: defaults.fy_counters, 
+          "nonRegisteredCustomerFields": defaults.nonRegisteredCustomerFields, 
+          "registeredCustomerFields": defaults.registeredCustomerFields, 
+          custom_fields: defaults.customFields, 
+          purchase_item_fields: defaultPurchaseItemFields, // 🔥 ADD THIS
+          purchase_custom_fields: [], // 🔥 ADD THIS
+          enable_extra_charges: defaults.enable_extra_charges, 
+          extra_charges_mandatory_for_unregistered: defaults.extra_charges_mandatory_for_unregistered, 
+          bank_details: defaults.bank_details, 
+          company_logo_url: defaults.company_logo_url, 
+          upi_qr_code_url: defaults.upi_qr_code_url, 
+          terms_and_conditions: defaults.terms_and_conditions 
+        };
         
         const { data: newSettings, error: insertError } = await supabase
             .from('settings')
@@ -155,6 +189,8 @@ export const getSettings = async () => {
             nonRegisteredCustomerFields: newSettings.nonRegisteredCustomerFields,
             registeredCustomerFields: newSettings.registeredCustomerFields,
             customFields: newSettings.custom_fields,
+            purchaseItemFields: newSettings.purchase_item_fields, // 🔥 ADD THIS
+            purchaseCustomFields: newSettings.purchase_custom_fields, // 🔥 ADD THIS
             enable_extra_charges: newSettings.enable_extra_charges,
             extra_charges_mandatory_for_unregistered: newSettings.extra_charges_mandatory_for_unregistered,
         };
