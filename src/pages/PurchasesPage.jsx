@@ -342,6 +342,7 @@ const PurchasesPage = () => {
           <PurchaseForm
             onSave={handleSavePurchase}
             onCancel={handleCancel}
+            editingPurchase={isEditing ? purchases.find(p => p.id === editingId) : null}
           />
         ) : (
           <PurchaseList

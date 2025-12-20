@@ -107,17 +107,19 @@ export const savePurchase = async (purchaseData) => {
         serialNo = lastPurchase && lastPurchase.length > 0 ? (lastPurchase[0].serial_no + 1) : 1;
       }
 
-      // Normalize items to snake_case for DB
-      const normalizedItems = (purchaseData.items || []).map(item => ({
-        model_name: item.modelName,
-        chassis_no: item.chassisNo,
-        engine_no: item.engineNo,
-        colour: item.colour || '',
-        category: item.category || null,
-        price: Number(item.price || 0),
-        hsn: item.hsn || '8711',
-        gst_rate: Number(item.gst || 28)
-      }));
+      // Filter empty items + use snake_case for DB trigger
+      const normalizedItems = (purchaseData.items || [])
+        .filter(item => item.chassisNo && item.chassisNo.trim() !== '')
+        .map(item => ({
+          model_name: item.modelName,
+          chassis_no: item.chassisNo,
+          engine_no: item.engineNo,
+          colour: item.colour || null,
+          category: item.category || null,
+          price: Number(item.price || 0),
+          hsn: item.hsn || '8711',
+          gst_rate: Number(item.gst || 28)
+        }));
 
       const payload = {
           user_id: userId,

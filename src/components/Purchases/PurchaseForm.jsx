@@ -17,7 +17,7 @@ import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/NewSupabaseAuthContext';
 import { useQuery } from '@tanstack/react-query';
 
-const PurchaseForm = ({ onSave, onCancel }) => {
+const PurchaseForm = ({ onSave, onCancel, editingPurchase }) => {
   const {
     id,
     created_at,
@@ -52,29 +52,26 @@ const PurchaseForm = ({ onSave, onCancel }) => {
     setPartyNameSearch(partyName || '');
   }, [partyName]);
 
-  const getNextSerialNo = useCallback(async () => {
-    if (id) return; 
-    try {
-      const { data, error } = await supabase
-        .from('purchases')
-        .select('serial_no')
-        .eq('user_id', user.id)
-        .order('serial_no', { ascending: false })
-        .limit(1);
-
-      if (error && error.code !== 'PGRST116') { 
-        console.error('Error fetching last serial number:', error);
-        setFormData({ serial_no: 1 });
-        return;
-      }
-      const nextSerial = data && data.length > 0 ? (data[0].serial_no || 0) + 1 : 1;
-      console.log('Next serial number:', nextSerial);
-      setFormData({ serial_no: nextSerial });
-    } catch (error) {
-      console.error('Error in getNextSerialNo:', error);
-      setFormData({ serial_no: 1 });
+  // Load edit data into store
+  useEffect(() => {
+    if (editingPurchase && !id) {
+      setFormData({
+        id: editingPurchase.id,
+        created_at: editingPurchase.created_at,
+        serial_no: editingPurchase.serial_no,
+        invoiceDate: editingPurchase.invoice_date,
+        invoiceNo: editingPurchase.invoice_no,
+        partyName: editingPurchase.party_name,
+      });
+      setItemsInStore(editingPurchase.items || []);
     }
-  }, [setFormData, user.id, id]);
+  }, [editingPurchase, id, setFormData, setItemsInStore]);
+
+  const getNextSerialNo = useCallback(async () => {
+    if (id) return; // Skip if editing
+    // Serial number will be handled by backend
+    setFormData({ serial_no: 'Auto' });
+  }, [setFormData, id]);
 
   useEffect(() => {
     if (!firstLoadRef.current && user?.id) {
@@ -107,7 +104,7 @@ const PurchaseForm = ({ onSave, onCancel }) => {
       const importedData = await parseExcelData(file);
       
       const { data: purchasesResult } = await getPurchases({pageSize: 10000});
-      const allChassisNos = purchasesResult.flatMap(p => (p.items || []).map(item => item.chassisNo?.toUpperCase()));
+      const allChassisNos = purchasesResult.flatMap(p => (p.items || []).map(item => item.chassis_no?.toUpperCase()));
 
       let newItemsCount = 0;
       importedData.forEach((row, index) => {
@@ -255,7 +252,7 @@ const PurchaseForm = ({ onSave, onCancel }) => {
       });
       
       const purchaseData = {
-        id: id || crypto.randomUUID(),
+        ...(id ? { id } : {}), // Only include ID if editing
         serial_no,
         invoiceDate,
         invoiceNo,
