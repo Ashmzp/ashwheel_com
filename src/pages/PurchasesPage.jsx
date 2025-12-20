@@ -1,14 +1,12 @@
 import React, { useEffect, useMemo } from 'react';
 import '@/styles/responsive.css';
 import { Helmet } from 'react-helmet-async';
-import { v4 as uuidv4 } from 'uuid';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   savePurchase as savePurchaseToDb,
   deletePurchase as deletePurchaseFromDb,
   getPurchases as fetchPurchasesFromDb,
 } from '@/utils/db/purchases';
-import { addStock, deleteStockByChassis } from '@/utils/db/stock';
 import { Search, Plus, Edit, Trash2, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -31,10 +29,10 @@ const PurchaseList = ({ purchases, onAddPurchase, onEditPurchase, onDeletePurcha
   const { canWrite, canDelete, isExpired } = useAuth();
   const queryClient = useQueryClient();
 
-  const handleDelete = async (purchaseId, items) => {
+  const handleDelete = async (purchaseId) => {
     if (window.confirm('Are you sure? This will also remove related items from stock.')) {
       try {
-        await onDeletePurchase(purchaseId, items);
+        await onDeletePurchase(purchaseId);
         toast({ title: "Success", description: "Purchase deleted successfully!" });
       } catch (error) {
         toast({ title: "Error", description: `Failed to delete purchase. ${error.message}`, variant: "destructive" });
@@ -90,8 +88,8 @@ const PurchaseList = ({ purchases, onAddPurchase, onEditPurchase, onDeletePurcha
     purchases.forEach(p => {
       (p.items || []).forEach(item => {
         if (
-          item.chassisNo?.toLowerCase().includes(lowerSearchTerm) ||
-          item.engineNo?.toLowerCase().includes(lowerSearchTerm)
+          item.chassis_no?.toLowerCase().includes(lowerSearchTerm) ||
+          item.engine_no?.toLowerCase().includes(lowerSearchTerm)
         ) {
           chassisSet.add(p.id);
         }
@@ -161,7 +159,7 @@ const PurchaseList = ({ purchases, onAddPurchase, onEditPurchase, onDeletePurcha
                         <Button variant="ghost" className="btn-compact" onClick={() => onEditPurchase(purchase)}><Edit className="h-4 w-4" /></Button>
                       )}
                       {canDelete('purchases') && (
-                        <Button variant="ghost" className="btn-compact" className="text-red-500" onClick={() => handleDelete(purchase.id, purchase.items)}><Trash2 className="h-4 w-4" /></Button>
+                        <Button variant="ghost" className="btn-compact" className="text-red-500" onClick={() => handleDelete(purchase.id)}><Trash2 className="h-4 w-4" /></Button>
                       )}
                     </TableCell>
                   </TableRow>
@@ -240,37 +238,14 @@ const PurchasesPage = () => {
 
   const saveMutation = useMutation({
     mutationFn: async (purchaseData) => {
-      const selectedPurchase = isEditing ? purchases.find(p => p.id === editingId) : null;
-      if (selectedPurchase?.items?.length > 0) {
-        const oldChassisNos = selectedPurchase.items.map(item => item.chassisNo);
-        await deleteStockByChassis(oldChassisNos);
-      }
-
+      // Let DB trigger handle stock management completely
       const savedData = await savePurchaseToDb(purchaseData);
-
-      if (savedData?.items?.length > 0) {
-        const newStockItems = savedData.items.map(item => ({
-          id: uuidv4(),
-          purchase_id: savedData.id,
-          model_name: item.modelName,
-          chassis_no: item.chassisNo,
-          engine_no: item.engineNo,
-          colour: item.colour,
-          hsn: item.hsn,
-          gst: item.gst,
-          price: item.price,
-          purchase_date: savedData.invoice_date,
-          user_id: user.id,
-          category: item.category,
-        }));
-        await addStock(newStockItems);
-      }
       return savedData;
     },
     onSuccess: (savedData) => {
       toast({
         title: "Success",
-        description: `Purchase ${isEditing ? 'updated' : 'created'} and stock updated.`
+        description: `Purchase ${isEditing ? 'updated' : 'created'} successfully.`
       });
       queryClient.invalidateQueries({ queryKey: ['purchases'] });
       queryClient.invalidateQueries({ queryKey: ['stock'] });
@@ -289,11 +264,8 @@ const PurchasesPage = () => {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: async ({ purchaseId, items }) => {
-      if (items?.length > 0) {
-        const chassisNosToDelete = items.map(item => item.chassisNo);
-        await deleteStockByChassis(chassisNosToDelete);
-      }
+    mutationFn: async ({ purchaseId }) => {
+      // DB trigger will handle stock cleanup on purchase delete
       await deletePurchaseFromDb(purchaseId);
     },
     onSuccess: () => {
@@ -310,7 +282,7 @@ const PurchasesPage = () => {
   const handleAddPurchase = () => setOpenForm({ type: 'purchase', mode: 'new' });
   const handleEditPurchase = (purchase) => setOpenForm({ type: 'purchase', mode: 'edit', id: purchase.id });
   const handleSavePurchase = (purchaseData) => saveMutation.mutate(purchaseData);
-  const handleDeletePurchase = (purchaseId, items) => deleteMutation.mutate({ purchaseId, items });
+  const handleDeletePurchase = (purchaseId) => deleteMutation.mutate({ purchaseId });
 
   const handleCancel = () => {
     clearPurchaseStore();
