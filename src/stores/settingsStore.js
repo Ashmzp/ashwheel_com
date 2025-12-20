@@ -166,9 +166,24 @@ export const useSettingsStore = create(
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ settings: state.settings }),
       
-      // 🔥 MERGE STRATEGY: Always trust currentState (DB-loaded)
+      // 🔥 MERGE STRATEGY: Merge persisted with current, prioritizing DB data
       merge: (persistedState, currentState) => {
-        return currentState;
+        // If we have fresh DB data, use it; otherwise use persisted
+        if (currentState.isLoading === false && currentState.settings !== DEFAULT_SETTINGS) {
+          return currentState; // Use fresh DB data
+        }
+        // Merge persisted settings with defaults
+        return {
+          ...currentState,
+          settings: {
+            ...DEFAULT_SETTINGS,
+            ...persistedState?.settings,
+            purchaseItemFields: {
+              ...defaultPurchaseItemFields,
+              ...persistedState?.settings?.purchaseItemFields,
+            },
+          }
+        };
       },
     }
   )

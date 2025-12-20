@@ -55,6 +55,7 @@ const PurchaseForm = ({ onSave, onCancel, editingPurchase }) => {
   // Load edit data into store
   useEffect(() => {
     if (editingPurchase && !id) {
+      console.log('Loading edit data:', editingPurchase);
       setFormData({
         id: editingPurchase.id,
         created_at: editingPurchase.created_at,
@@ -63,18 +64,20 @@ const PurchaseForm = ({ onSave, onCancel, editingPurchase }) => {
         invoiceNo: editingPurchase.invoice_no,
         partyName: editingPurchase.party_name,
       });
-      // Convert DB snake_case to frontend camelCase
-      const convertedItems = (editingPurchase.items || []).map(item => ({
-        id: Date.now().toString() + Math.random(),
-        modelName: item.model_name,
-        chassisNo: item.chassis_no,
-        engineNo: item.engine_no,
-        colour: item.colour,
-        category: item.category,
-        price: item.price,
-        hsn: item.hsn,
-        gst: item.gst_rate || item.gst,
+      // Convert DB items to frontend format
+      const convertedItems = (editingPurchase.items || []).map((item, index) => ({
+        id: `edit_${Date.now()}_${index}`,
+        modelName: item.model_name || '',
+        chassisNo: item.chassis_no || '',
+        engineNo: item.engine_no || '',
+        colour: item.colour || '',
+        category: item.category || '',
+        price: item.price || '0',
+        hsn: item.hsn || '',
+        gst: item.gst_rate || item.gst || '28',
+        location: item.location || '',
       }));
+      console.log('Converted items:', convertedItems);
       setItemsInStore(convertedItems);
     }
   }, [editingPurchase, id, setFormData, setItemsInStore]);

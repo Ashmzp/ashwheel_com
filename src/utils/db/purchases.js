@@ -107,7 +107,7 @@ export const savePurchase = async (purchaseData) => {
         serialNo = lastPurchase && lastPurchase.length > 0 ? (lastPurchase[0].serial_no + 1) : 1;
       }
 
-      // Filter empty items + use snake_case for DB trigger
+      // Filter empty items + use snake_case for DB trigger + include location
       const normalizedItems = (purchaseData.items || [])
         .filter(item => item.chassisNo && item.chassisNo.trim() !== '')
         .map(item => ({
@@ -118,7 +118,8 @@ export const savePurchase = async (purchaseData) => {
           category: item.category || null,
           price: Number(item.price || 0),
           hsn: item.hsn || '8711',
-          gst_rate: Number(item.gst || 28)
+          gst_rate: Number(item.gst || 28),
+          location: item.location || null
         }));
 
       const payload = {
