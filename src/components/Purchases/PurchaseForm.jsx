@@ -63,7 +63,19 @@ const PurchaseForm = ({ onSave, onCancel, editingPurchase }) => {
         invoiceNo: editingPurchase.invoice_no,
         partyName: editingPurchase.party_name,
       });
-      setItemsInStore(editingPurchase.items || []);
+      // Convert DB snake_case to frontend camelCase
+      const convertedItems = (editingPurchase.items || []).map(item => ({
+        id: Date.now().toString() + Math.random(),
+        modelName: item.model_name,
+        chassisNo: item.chassis_no,
+        engineNo: item.engine_no,
+        colour: item.colour,
+        category: item.category,
+        price: item.price,
+        hsn: item.hsn,
+        gst: item.gst_rate || item.gst,
+      }));
+      setItemsInStore(convertedItems);
     }
   }, [editingPurchase, id, setFormData, setItemsInStore]);
 
