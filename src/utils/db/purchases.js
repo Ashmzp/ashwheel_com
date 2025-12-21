@@ -169,9 +169,13 @@ export const savePurchase = async (purchaseData, existingPurchase = null) => {
         : await query.insert(payload).select().single();
 
       if (error) {
-          console.error('Supabase error:', error);
+          console.error('Supabase error FULL:', JSON.stringify(error, null, 2));
+          console.error('Error code:', error.code);
+          console.error('Error message:', error.message);
+          console.error('Error details:', error.details);
+          console.error('Error hint:', error.hint);
           logError(error, 'savePurchase');
-          throw new Error(safeErrorMessage(error));
+          throw new Error(error.message || safeErrorMessage(error));
       }
 
       console.log('Purchase saved successfully:', data);
