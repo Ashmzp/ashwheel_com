@@ -36,27 +36,39 @@ const usePurchaseStore = create(
       initialize: (mode, data = null) => {
         const state = get();
         const target = mode === 'edit' && data?.id ? data.id : (mode === 'new' ? 'new' : null);
+        
+        console.log('🔍 Initialize called:', { mode, hasData: !!data, target, currentInit: state.initializedFor });
+        console.log('🔍 Data received:', data);
+        console.log('🔍 Items in data:', data?.items);
+        
         if (state.initializedFor === target) {
+          console.log('⚠️ Already initialized for:', target);
           // already initialized for same mode/id -> no-op
           return;
         }
 
         if (mode === 'edit' && data) {
+          console.log('✅ Edit mode - converting items');
           // Convert DB items format to frontend format
-          const convertedItems = (data.items || []).map((item, index) => ({
-            id: `edit_${Date.now()}_${index}`,
-            modelName: item.model_name || '',
-            chassisNo: item.chassis_no || '',
-            engineNo: item.engine_no || '',
-            colour: item.colour || '',
-            category: item.category || '',
-            price: item.price || '0',
-            hsn: item.hsn || '',
-            gst: item.gst_rate || item.gst || '28',
-            location: item.location || '',
-            // Handle custom fields
-            ...(item.custom_fields || {})
-          }));
+          const convertedItems = (data.items || []).map((item, index) => {
+            console.log('Converting item:', item);
+            return {
+              id: `edit_${Date.now()}_${index}`,
+              modelName: item.model_name || item.modelName || '',
+              chassisNo: item.chassis_no || item.chassisNo || '',
+              engineNo: item.engine_no || item.engineNo || '',
+              colour: item.colour || '',
+              category: item.category || '',
+              price: item.price || '0',
+              hsn: item.hsn || '',
+              gst: item.gst_rate || item.gst || '28',
+              location: item.location || '',
+              // Handle custom fields
+              ...(item.custom_fields || item.customFields || {})
+            };
+          });
+
+          console.log('✅ Converted items:', convertedItems);
 
           set({
             ...createInitialState({
@@ -70,7 +82,10 @@ const usePurchaseStore = create(
             }),
             initializedFor: data.id,
           });
+          
+          console.log('✅ Store updated with items:', convertedItems.length);
         } else {
+          console.log('✅ New mode - empty items');
           // new
           set({
             ...createInitialState(),
