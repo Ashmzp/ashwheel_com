@@ -15,6 +15,7 @@ const DEFAULT_FIELDS = [
   { key: 'price', label: 'Price', enabled: true, mandatory: true },
   { key: 'hsn', label: 'HSN', enabled: true, mandatory: true },
   { key: 'gst', label: 'GST%', enabled: true, mandatory: true },
+  { key: 'location', label: 'Location', enabled: true, mandatory: true },
 ];
 
 const PurchaseItemsConfig = ({ 
