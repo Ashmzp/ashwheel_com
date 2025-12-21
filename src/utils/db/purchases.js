@@ -88,7 +88,7 @@ export const getPurchaseById = async (id) => {
     return data;
 };
 
-export const savePurchase = async (purchaseData) => {
+export const savePurchase = async (purchaseData, existingPurchase = null) => {
     try {
       await validateSession();
       const userId = await getCurrentUserId();
@@ -96,7 +96,7 @@ export const savePurchase = async (purchaseData) => {
 
       // Get next serial number if creating new purchase
       let serialNo = purchaseData.serial_no;
-      if (!isUpdating && !serialNo) {
+      if (!isUpdating && (!serialNo || serialNo === 'Auto')) {
         const { data: lastPurchase } = await supabase
           .from('purchases')
           .select('serial_no')
@@ -107,30 +107,55 @@ export const savePurchase = async (purchaseData) => {
         serialNo = lastPurchase && lastPurchase.length > 0 ? (lastPurchase[0].serial_no + 1) : 1;
       }
 
-      // Filter empty items + use snake_case for DB trigger + include location
+      // Filter empty items + keep camelCase for trigger compatibility
       const normalizedItems = (purchaseData.items || [])
         .filter(item => item.chassisNo && item.chassisNo.trim() !== '')
-        .map(item => ({
-          model_name: item.modelName,
-          chassis_no: item.chassisNo,
-          engine_no: item.engineNo,
-          colour: item.colour || null,
-          category: item.category || null,
-          price: Number(item.price || 0),
-          hsn: item.hsn || '8711',
-          gst_rate: Number(item.gst || 28),
-          location: item.location || null
-        }));
+        .map(item => {
+          const dbItem = {
+            modelName: item.modelName,
+            chassisNo: item.chassisNo,
+            engineNo: item.engineNo,
+            colour: item.colour || null,
+            category: item.category || null,
+            price: Number(item.price || 0),
+            hsn: item.hsn || '8711',
+            gst: item.gst !== undefined && item.gst !== null && item.gst !== '' ? Number(item.gst) : 28,
+            location: item.location || null
+          };
+          
+          // Extract custom fields (fields starting with custom_)
+          const customFields = {};
+          Object.keys(item).forEach(key => {
+            if (key.startsWith('custom_')) {
+              customFields[key] = item[key];
+            }
+          });
+          
+          if (Object.keys(customFields).length > 0) {
+            dbItem.customFields = customFields;
+          }
+          
+          return dbItem;
+        });
 
       const payload = {
           user_id: userId,
           serial_no: serialNo,
-          invoice_date: purchaseData.invoiceDate,
+          invoice_date: new Date(purchaseData.invoiceDate).toISOString().slice(0, 10),
           invoice_no: purchaseData.invoiceNo,
           party_name: purchaseData.partyName,
-          items: normalizedItems,
           category: normalizedItems[0]?.category || null,
       };
+
+      // Only include items if they changed (prevents unnecessary trigger fire)
+      if (isUpdating && existingPurchase) {
+        const itemsChanged = JSON.stringify(normalizedItems) !== JSON.stringify(existingPurchase.items);
+        if (itemsChanged) {
+          payload.items = normalizedItems;
+        }
+      } else {
+        payload.items = normalizedItems;
+      }
 
       if (isUpdating) {
         payload.id = purchaseData.id;

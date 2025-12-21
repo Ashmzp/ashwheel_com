@@ -42,6 +42,22 @@ const usePurchaseStore = create(
         }
 
         if (mode === 'edit' && data) {
+          // Convert DB items format to frontend format
+          const convertedItems = (data.items || []).map((item, index) => ({
+            id: `edit_${Date.now()}_${index}`,
+            modelName: item.model_name || '',
+            chassisNo: item.chassis_no || '',
+            engineNo: item.engine_no || '',
+            colour: item.colour || '',
+            category: item.category || '',
+            price: item.price || '0',
+            hsn: item.hsn || '',
+            gst: item.gst_rate || item.gst || '28',
+            location: item.location || '',
+            // Handle custom fields
+            ...(item.custom_fields || {})
+          }));
+
           set({
             ...createInitialState({
               id: data.id,
@@ -49,7 +65,7 @@ const usePurchaseStore = create(
               invoiceDate: data.invoice_date ?? getCurrentDate(),
               invoiceNo: data.invoice_no ?? '',
               partyName: data.party_name ?? '',
-              items: data.items ?? [],
+              items: convertedItems,
               serial_no: data.serial_no ?? 0,
             }),
             initializedFor: data.id,

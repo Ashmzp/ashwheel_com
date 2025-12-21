@@ -238,8 +238,9 @@ const PurchasesPage = () => {
 
   const saveMutation = useMutation({
     mutationFn: async (purchaseData) => {
-      // Let DB trigger handle stock management completely
-      const savedData = await savePurchaseToDb(purchaseData);
+      // Pass existing purchase for optimization
+      const existingPurchase = isEditing ? purchases.find(p => p.id === editingId) : null;
+      const savedData = await savePurchaseToDb(purchaseData, existingPurchase);
       return savedData;
     },
     onSuccess: (savedData) => {
