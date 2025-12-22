@@ -36,14 +36,18 @@ try {
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
+      // Cache data for 5 minutes (optimized for performance)
+      staleTime: 5 * 60 * 1000,
+      // Keep in memory for 10 minutes
+      cacheTime: 10 * 60 * 1000,
+      // Don't refetch on window focus (better UX)
       refetchOnWindowFocus: false,
       refetchOnReconnect: false,
       refetchOnMount: false,
       refetchInterval: false,
       refetchIntervalInBackground: false,
-      retry: false,
-      staleTime: Infinity,
-      gcTime: Infinity,
+      // Retry failed requests once
+      retry: 1,
       networkMode: 'online',
     },
     mutations: {
